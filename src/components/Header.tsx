@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { cyberAudio } from '../utils/cyberAudio';
-import { Gamepad2, Zap, Flame, Clock, Award, ChevronDown, CheckCircle2, Volume2, VolumeX, HardDrive } from 'lucide-react';
+import { Gamepad2, Zap, Flame, Clock, Award, ChevronDown, CheckCircle2, Volume2, VolumeX, HardDrive, Cpu } from 'lucide-react';
 import { ModalSaveDesktop } from './ModalSaveDesktop';
+import { ModalWin11Automation } from './ModalWin11Automation';
 
 interface HeaderProps {
   onOpenLanding?: () => void;
@@ -13,6 +14,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(() => cyberAudio.getMuted());
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isAutoModalOpen, setIsAutoModalOpen] = useState(false);
 
   const handleToggleSound = () => {
     const muted = cyberAudio.toggleMute();
@@ -126,6 +128,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding }) => {
         {/* Right: Live Session Clock, Audio Toggle & Overall Progress */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Save to Desktop Button */}
+          {/* Automatisation Windows 11 Pro Button */}
+          <button
+            onClick={() => {
+              cyberAudio.playChirp();
+              setIsAutoModalOpen(true);
+            }}
+            className="px-2.5 py-1.5 text-[11px] font-hud font-bold uppercase tracking-wider bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition-all cursor-pointer flex items-center gap-1.5 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+            title="Automatiser, nettoyer et optimiser Windows 11 Pro"
+          >
+            <Cpu className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">AUTO PC</span>
+          </button>
+
+          {/* Save to Desktop Button */}
           <button
             onClick={() => {
               cyberAudio.playClick();
@@ -198,6 +214,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding }) => {
       <ModalSaveDesktop
         isOpen={isSaveModalOpen}
         onClose={() => setIsSaveModalOpen(false)}
+      />
+
+      {/* Modal Automatisation Windows 11 Pro */}
+      <ModalWin11Automation
+        isOpen={isAutoModalOpen}
+        onClose={() => setIsAutoModalOpen(false)}
       />
     </header>
   );
