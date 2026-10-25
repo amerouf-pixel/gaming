@@ -209,10 +209,96 @@ function Register-AutoMaintenanceTask {
     Write-Host "[OK] Tache planifiee '$taskName' activee (Tous les dimanches a 12h00) !" -ForegroundColor Green
 }
 
+# ============================================================
+# FONCTIONS ADDITIONNELLES v2.1 (verifiees)
+# ============================================================
+
+function Focus-Assist-Gaming {
+    Write-Host "`n[8] ACTIVATION DU FOCUS ASSIST POUR JEUX..." -ForegroundColor Cyan
+    New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\PushNotifications" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\PushNotifications" -Name "ToastEnabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_TOASTS_ENABLED" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Write-Host "    [OK] Notifications desactivees - Aucune interruption pendant les jeux" -ForegroundColor Green
+}
+
+function Gestion-Apps-Arriere-plan {
+    Write-Host "`n[9] GESTION DES APPLICATIONS EN ARRIERE-PLAN..." -ForegroundColor Cyan
+    New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" -Force | Out-Null
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" -Name "LetAppsRunInBackground" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+    Write-Host "    [OK] Applications en arriere-plan desactivees (RAM et CPU liberes)" -ForegroundColor Green
+}
+
+function Invoke-Storage-Sense {
+    Write-Host "`n[10] ACTIVATION DU STOCKAGE SENSE (NETTOYAGE AUTOMATIQUE)..." -ForegroundColor Cyan
+    $sp = "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy"
+    New-Item -Path $sp -Force | Out-Null
+    Set-ItemProperty -Path $sp -Name "01" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $sp -Name "04" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $sp -Name "08" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $sp -Name "2048" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    Write-Host "    [OK] Stockage Sense active - Windows nettoiera le disque automatiquement" -ForegroundColor Green
+}
+
+function Parametres-Confidentialite {
+    Write-Host "`n[11] CONFIDENTIALITE RENFORCEE (TELEMETRIE ET PUBLICITES)..." -ForegroundColor Cyan
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Force | Out-Null
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowSyncProviderNotifications" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Write-Host "    [OK] Telemetrie et identifiant publicitaire bloques" -ForegroundColor Green
+}
+
+
+function Gestion-Demarrage {
+    Write-Host "`n[12] AUDIT DES APPLICATIONS AU DEMARRAGE..." -ForegroundColor Cyan
+    $startupApps = Get-CimInstance -ClassName Win32_StartupCommand -ErrorAction SilentlyContinue | Select-Object Name, Command
+    if ($startupApps) {
+        Write-Host "    Applications lancees au demarrage :" -ForegroundColor Gray
+        foreach ($app in $startupApps) {
+            Write-Host "    - $($app.Name)" -ForegroundColor DarkGray
+        }
+    } else {
+        Write-Host "    Aucune application au demarrage detectee." -ForegroundColor DarkGray
+    }
+    Write-Host "    [OK] Pour desactiver une app : Gestionnaire des taches > Demarrage" -ForegroundColor Green
+}
+
+function Historique-Presse-papiers {
+    Write-Host "`n[13] NETTOYAGE DE L'HISTORIQUE DU PRESSE-PAPIERS..." -ForegroundColor Cyan
+    New-Item -Path "HKCU:\Software\Microsoft\Clipboard" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Clipboard" -Name "EnableClipboardHistory" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-Clipboard -Value $null -ErrorAction SilentlyContinue
+    Write-Host "    [OK] Historique du presse-papiers desactive et vide" -ForegroundColor Green
+}
+
+function Suggestions-Windows {
+    Write-Host "`n[14] DESACTIVATION DES SUGGESTIONS ET PUBLICITES WINDOWS..." -ForegroundColor Cyan
+    $cdm = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+    New-Item -Path $cdm -Force | Out-Null
+    Set-ItemProperty -Path $cdm -Name "SubscribedContent-338388Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdm -Name "SubscribedContent-338389Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdm -Name "SubscribedContent-353694Enabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdm -Name "SystemPaneSuggestionsEnabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $cdm -Name "SoftLandingEnabled" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowWindowsWelcomeExperience" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowCuratedWindowsRecommendations" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Write-Host "    [OK] Suggestions, conseils et publicites Windows desactives" -ForegroundColor Green
+}
+
 if ($args -contains "-AutoRun") {
     Enable-GamingModeTurbo
     Invoke-DeepClean
     Invoke-OrganizeDownloads
+    Focus-Assist-Gaming
+    Gestion-Apps-Arriere-plan
+    Invoke-Storage-Sense
+    Parametres-Confidentialite
+    Historique-Presse-papiers
+    Suggestions-Windows
     exit
 }
 
@@ -252,68 +338,8 @@ do {
         "12" { Gestion-Demarrage; Pause }
         "13" { Historique-Presse-papiers; Pause }
         "14" { Suggestions-Windows; Pause }
-        "15" { Optimize-Win11Pro; Enable-GamingModeTurbo; Invoke-DeepClean; Invoke-OrganizeDownloads; Update-AllSoftware; Pause }
+        "15" { Optimize-Win11Pro; Enable-GamingModeTurbo; Invoke-DeepClean; Invoke-OrganizeDownloads; Update-AllSoftware; Focus-Assist-Gaming; Gestion-Apps-Arriere-plan; Invoke-Storage-Sense; Parametres-Confidentialite; Gestion-Demarrage; Historique-Presse-papiers; Suggestions-Windows; Pause }
         "0" { Write-Host "`nA bientot !" -ForegroundColor Cyan }
         default { Write-Host "`nChoix invalide." -ForegroundColor Yellow; Start-Sleep -Seconds 1 }
     }
 } while ($choice -ne "0")
-
-# Nouvelles fonctions d'optimisation
-function Focus-Assist-Gaming {
-    Write-Host "`n[8] ACTIVATION DU FOCUS ASSIST POUR JEUX...`nForegroundColor Cyan
-    Set-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\GameDVR\" -Name \"GameDVR_Enabled\" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
-    New-Item -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR\" -Force | Out-Null
-    Set-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR\" -Name \"AutoGameMode\" -Value 0 -Type DWord -Force
-    Write-Host \"    [OK] Focus Assist activé - Pas de notifications pendant les jeux\" -ForegroundColor Green
-}
-
-function Gestion-Apps-Arriere-plan {
-    Write-Host "`n[9] GESTION APPLICATIONS ARRIÈRE-PLAN...`nForegroundColor Cyan
-    $bgApps = Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\" -Name \"LetAppsRunBackground\" -ErrorAction SilentlyContinue
-    if ($bgApps) {
-        Set-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\" -Name \"LetAppsRunBackground\" -Value 0 -Type DWord -Force
-        Write-Host \"    [OK] Applications arrière-plan désactivées\" -ForegroundColor Green
-    }
-    Get-AppxPackage | Where-Object {$_.Name -notlike \"Microsoft.*\"} | Stop-Process -Force -ErrorAction SilentlyContinue
-    Write-Host \"    [OK] Processus tiers arrêtés\" -ForegroundColor DarkGray
-}
-
-function Invoke-Storage-Sense {
-    Write-Host \"`n[10] STOCKAGE SENSE (Nettoyage automatique)...`nForegroundColor Cyan
-    Set-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VolumeCache\\Cache\\Cache\" -Name \"CacheVolumeCapacityGB\" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
-    Write-Host \"    [OK] Stockage Sense configuré\" -ForegroundColor Green
-}
-
-function Parametres-Confidentialite {
-    Write-Host \"`n[11] PARAMÈTRES DE CONFIDENTIALITÉ...`nForegroundColor Cyan
-    New-Item -Path \"HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\" -Force | Out-Null
-    Set-ItemProperty -Path \"HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection\" -Name \"AllowTelemetry\" -Value 0 -Type DWord -Force
-    Set-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\" -Name \"ShowSyncProviderNotifications\" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
-    Write-Host \"    [OK] Paramètres de confidentialité appliqués\" -ForegroundColor Green
-}
-
-function Gestion-Demarrage {
-    Write-Host \"`n[12] GESTION DÉMARRAGE...`nForegroundColor Cyan
-    $startupApps = Get-CimInstance -ClassName Win32_StartupCommand | Select-Object Name, Command
-    Write-Host \"    Applications au démarrage actuelles :`nForegroundColor Gray
-    foreach ($app in $startupApps) {
-        Write-Host \"    - $($app.Name)\" -ForegroundColor DarkGray
-    }
-    Write-Host \"    [OK] Liste affichée - Pour gérer, utiliser Task Manager\" -ForegroundColor DarkGray
-}
-
-function Historique-Presse-papiers {
-    Write-Host \"`n[13] HISTOIRE PRESSE-PAPIERS...`nForegroundColor Cyan
-    $clipboardData = Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Clipboard\" -ErrorAction SilentlyContinue
-    if ($clipboardData) {
-        Set-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Clipboard\" -Name \"ClipboardCount\" -Value 0 -Type DWord -Force
-        Write-Host \"    [OK] Historique presse-papiers vidé\" -ForegroundColor Green
-    }
-}
-
-function Suggestions-Windows {
-    Write-Host \"`n[14] SUGGESTIONS WINDOWS...`nForegroundColor Cyan
-    Set-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\" -Name \"ShowWindowsWelcomeExperience\" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\" -Name \"ShowCuratedWindowsRecommendations\" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
-    Write-Host \"    [OK] Suggestions Windows désactivées\" -ForegroundColor Green
-}
