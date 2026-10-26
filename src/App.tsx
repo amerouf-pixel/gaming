@@ -10,6 +10,7 @@ import { CollectiblesView } from './components/views/CollectiblesView';
 import { VehiclesView } from './components/views/VehiclesView';
 import { ObjectivesView } from './components/views/ObjectivesView';
 import { NotesView } from './components/views/NotesView';
+import { SpecView } from './components/views/SpecView';
 import { StatsView } from './components/views/StatsView';
 import { ModalNewItem } from './components/ModalNewItem';
 import { LandingPage } from './components/LandingPage';
@@ -46,6 +47,8 @@ const AppContent: React.FC = () => {
         return <ObjectivesView />;
       case 'notes':
         return <NotesView onOpenNewItemModal={() => setIsModalOpen(true)} />;
+      case 'spec':
+        return <SpecView />;
       case 'stats':
         return <StatsView />;
       default:

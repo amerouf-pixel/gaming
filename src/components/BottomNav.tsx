@@ -10,6 +10,7 @@ import {
   Trophy,
   FileText,
   BarChart3,
+  ScrollText,
 } from 'lucide-react';
 
 interface NavItem {
@@ -38,6 +39,7 @@ export const BottomNav: React.FC = () => {
     },
     { id: 'vehicles', label: 'Véhicules', icon: Car },
     { id: 'objectives', label: 'Objectifs', icon: Trophy },
+    { id: 'spec', label: 'Pré-prod', icon: ScrollText },
     { id: 'notes', label: 'Notes', icon: FileText },
     { id: 'stats', label: 'Stats', icon: BarChart3 },
   ];
@@ -86,7 +88,7 @@ export const BottomNav: React.FC = () => {
 
       {/* Mobile sticky bottom navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#090d16]/95 backdrop-blur-lg border-t border-cyan-950/80 px-2 py-1.5 safe-area-pb">
-        <div className="flex items-center justify-around gap-1 max-w-lg mx-auto">
+        <div className="flex items-center justify-around gap-0.5 max-w-lg mx-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
@@ -97,7 +99,7 @@ export const BottomNav: React.FC = () => {
                   cyberAudio.playClick();
                   setCurrentTab(item.id);
                 }}
-                className={`relative flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-all ${
+                className={`relative flex flex-col items-center justify-center py-1 px-1 rounded-lg transition-all ${
                   isActive ? 'text-cyan-400' : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
