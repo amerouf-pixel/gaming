@@ -718,14 +718,24 @@ const CompanionsSection: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {filteredCompanions.map((companion) => (
-          <CompanionCard key={companion.id} companion={companion} />
+          <CompanionCard
+            key={companion.id}
+            companion={companion}
+            chance={
+              odds.find((tier) => tier.id === companion.rarity)?.displayChance ??
+              getRarity(companion.rarity).chance
+            }
+          />
         ))}
       </div>
     </div>
   );
 };
 
-const CompanionCard: React.FC<{ companion: Companion }> = ({ companion }) => {
+const CompanionCard: React.FC<{ companion: Companion; chance: number }> = ({
+  companion,
+  chance,
+}) => {
   const rarity = getRarity(companion.rarity);
   const egg = EGGS.find((e) => e.id === companion.egg);
   const EggIcon = EGG_ICONS[companion.egg];
@@ -746,7 +756,7 @@ const CompanionCard: React.FC<{ companion: Companion }> = ({ companion }) => {
         <span
           className={`text-[9px] font-mono-code uppercase px-1.5 py-0.5 border whitespace-nowrap ${rarity.bgClass} ${rarity.textClass} ${rarity.borderClass}`}
         >
-          {rarity.label} · {rarity.chance} %
+          {rarity.label} · {chance} %
         </span>
       </div>
 
@@ -1261,7 +1271,7 @@ export const SpecView: React.FC<{ initialSection?: SpecSectionId }> = ({
       </div>
 
       {/* Navigation interne */}
-      <div className="sticky top-16 z-20 -mx-4 px-4 py-2 bg-[#090d16]/95 backdrop-blur-md border-y border-cyan-950/60">
+      <div className="sticky top-16 md:top-28 z-20 -mx-4 px-4 py-2 bg-[#090d16]/95 backdrop-blur-md border-y border-cyan-950/60">
         <div className="flex items-center gap-1.5 overflow-x-auto">
           {SECTION_NAV.map((item) => {
             const Icon = item.icon;
