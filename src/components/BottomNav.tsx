@@ -20,7 +20,8 @@ interface NavItem {
 }
 
 export const BottomNav: React.FC = () => {
-  const { currentTab, setCurrentTab, stats } = useGame();
+  const { currentTab, setCurrentTab, stats, activeTheme } = useGame();
+  const isViceSunset = activeTheme === 'sunset-neon';
 
   const navItems: NavItem[] = [
     { id: 'home', label: 'Accueil', icon: LayoutDashboard },
@@ -45,7 +46,13 @@ export const BottomNav: React.FC = () => {
   return (
     <>
       {/* Desktop / Tablet top tab bar below header */}
-      <nav className="hidden md:block bg-[#0c1322] border-b border-cyan-950/70 sticky top-16 z-30">
+      <nav
+        className={`hidden md:block sticky top-16 z-30 transition-colors duration-300 ${
+          isViceSunset
+            ? 'bg-[#170632]/95 border-b border-[#ff2a85]/25'
+            : 'bg-[#0c1322] border-b border-cyan-950/70'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-1 sm:space-x-2 py-2 overflow-x-auto">
             {navItems.map((item) => {
@@ -58,19 +65,33 @@ export const BottomNav: React.FC = () => {
                     cyberAudio.playClick();
                     setCurrentTab(item.id);
                   }}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 ${
                     isActive
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 glow-cyan'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                      ? isViceSunset
+                        ? 'bg-[#ff2a85]/20 text-[#00f0ff] border border-[#ff2a85]/60 glow-pink'
+                        : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 glow-cyan'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-white/5'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-slate-500'}`} />
+                  <Icon
+                    className={`w-4 h-4 ${
+                      isActive
+                        ? isViceSunset
+                          ? 'text-[#ff2a85]'
+                          : 'text-cyan-400'
+                        : 'text-slate-500'
+                    }`}
+                  />
                   <span className="font-hud">{item.label}</span>
                   {item.badge !== undefined && item.badge > 0 && (
                     <span
-                      className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono-code ${
+                      className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono-code tabular-nums ${
                         isActive
-                          ? 'bg-cyan-500 text-slate-950 font-bold'
+                          ? isViceSunset
+                            ? 'bg-[#00f0ff] text-[#120428] font-bold'
+                            : 'bg-cyan-500 text-slate-950 font-bold'
+                          : isViceSunset
+                          ? 'bg-[#260b4d] text-slate-300'
                           : 'bg-slate-800 text-slate-400'
                       }`}
                     >
@@ -85,7 +106,13 @@ export const BottomNav: React.FC = () => {
       </nav>
 
       {/* Mobile sticky bottom navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#090d16]/95 backdrop-blur-lg border-t border-cyan-950/80 px-2 py-1.5 safe-area-pb">
+      <nav
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-lg px-2 py-1.5 safe-area-pb ${
+          isViceSunset
+            ? 'bg-[#120428]/95 border-t border-[#ff2a85]/35'
+            : 'bg-[#090d16]/95 border-t border-cyan-950/80'
+        }`}
+      >
         <div className="flex items-center justify-around gap-1 max-w-lg mx-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -98,7 +125,11 @@ export const BottomNav: React.FC = () => {
                   setCurrentTab(item.id);
                 }}
                 className={`relative flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-all ${
-                  isActive ? 'text-cyan-400' : 'text-slate-500 hover:text-slate-300'
+                  isActive
+                    ? isViceSunset
+                      ? 'text-[#00f0ff]'
+                      : 'text-cyan-400'
+                    : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
                 <div className="relative">
@@ -108,20 +139,34 @@ export const BottomNav: React.FC = () => {
                     }`}
                   />
                   {item.badge !== undefined && item.badge > 0 && (
-                    <span className="absolute -top-1 -right-2 px-1 text-[9px] font-mono-code font-bold rounded-full bg-cyan-500 text-slate-950">
+                    <span
+                      className={`absolute -top-1 -right-2 px-1 text-[9px] font-mono-code font-bold rounded-full tabular-nums ${
+                        isViceSunset
+                          ? 'bg-[#ff2a85] text-white'
+                          : 'bg-cyan-500 text-slate-950'
+                      }`}
+                    >
                       {item.badge}
                     </span>
                   )}
                 </div>
                 <span
                   className={`text-[10px] mt-1 font-hud tracking-tight leading-none ${
-                    isActive ? 'font-bold text-cyan-300' : 'font-medium'
+                    isActive
+                      ? isViceSunset
+                        ? 'font-bold text-[#ff7b00]'
+                        : 'font-bold text-cyan-300'
+                      : 'font-medium'
                   }`}
                 >
                   {item.label}
                 </span>
                 {isActive && (
-                  <span className="absolute bottom-0 w-3 h-0.5 bg-cyan-400 rounded-full glow-cyan" />
+                  <span
+                    className={`absolute bottom-0 w-3 h-0.5 rounded-full ${
+                      isViceSunset ? 'bg-[#ff2a85] glow-pink' : 'bg-cyan-400 glow-cyan'
+                    }`}
+                  />
                 )}
               </button>
             );

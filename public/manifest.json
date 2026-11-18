@@ -1,10 +1,10 @@
 {
-  "name": "Gaming Companion",
-  "short_name": "GameCompanion",
+  "name": "NeonOS",
+  "short_name": "NeonOS",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#090d16",
-  "theme_color": "#090d16",
+  "background_color": "#120428",
+  "theme_color": "#120428",
   "orientation": "portrait-primary",
   "icons": [
     {

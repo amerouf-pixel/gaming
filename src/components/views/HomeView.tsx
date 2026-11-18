@@ -33,6 +33,7 @@ interface HomeViewProps {
 export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLanding }) => {
   const {
     activeProfile,
+    activeTheme,
     overallProgress,
     stats,
     missions,
@@ -45,6 +46,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
     toggleCollectible,
   } = useGame();
 
+  const isSunsetNeon = activeTheme === 'sunset-neon';
   const [companionDeckMode, setCompanionDeckMode] = useState<boolean>(false);
   const [showCommercialModal, setShowCommercialModal] = useState<boolean>(false);
 
@@ -73,25 +75,38 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
       {/* ========================================================================= */}
       {/* 1. HERO TACTICAL BANNER & COMMERCIAL HEADLINE                             */}
       {/* ========================================================================= */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#070c18] via-[#091022] to-[#050912] border border-cyan-900/60 p-6 sm:p-8 shadow-2xl">
+      <div
+        className={`relative overflow-hidden border p-6 sm:p-8 shadow-2xl transition-colors ${
+          isSunsetNeon
+            ? 'bg-gradient-to-br from-[#1a0736] via-[#120428] to-[#0e0320] border-[#ff2a85]/45'
+            : 'bg-gradient-to-br from-[#070c18] via-[#091022] to-[#050912] border-cyan-900/60'
+        }`}
+      >
         {/* Glow ambient meshes */}
-        <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20" />
-        <div className="absolute bottom-0 left-1/3 w-[300px] h-[300px] bg-indigo-500/10 rounded-full blur-[90px] pointer-events-none" />
+        <div
+          className={`absolute top-0 right-0 w-[450px] h-[450px] rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20 ${
+            isSunsetNeon ? 'bg-[#ff2a85]/18' : 'bg-cyan-500/10'
+          }`}
+        />
+        <div
+          className={`absolute bottom-0 left-1/3 w-[300px] h-[300px] rounded-full blur-[90px] pointer-events-none ${
+            isSunsetNeon ? 'bg-[#ff7b00]/14' : 'bg-indigo-500/10'
+          }`}
+        />
 
-        {/* Top Badges & Commercial Pro Pill */}
+        {/* Top Badges & Commercial Pro CTA */}
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono-code">
-              <span className="text-cyan-400 font-bold uppercase tracking-wider">
-                COMPAGNON TACTIQUE HAUTE PRÉCISION
+              <span className={`font-bold uppercase tracking-wider ${isSunsetNeon ? 'text-[#00f0ff]' : 'text-cyan-400'}`}>
+                NEONOS · SECOND-SCREEN TACTICAL HUD
               </span>
               <span className="text-slate-600">/</span>
-              <span className="text-slate-400">
-                PROFIL : <span className="text-cyan-300 font-semibold">{activeProfile.name}</span>
+              <span className="text-slate-300">
+                UNIVERS : <span className={`font-semibold ${isSunsetNeon ? 'text-[#ff7b00]' : 'text-cyan-300'}`}>{activeProfile.name}</span>
               </span>
               <span className="text-slate-600">/</span>
               <span className="text-emerald-400 flex items-center gap-1 font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                 MOTEUR LOCAL 0ms
               </span>
             </div>
@@ -100,9 +115,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
               CENTRE DE COMMANDEMENT · 100% COMPLETION
             </h1>
 
-            <p className="text-slate-300 text-sm max-w-2xl leading-relaxed font-sans">
+            <p className="text-slate-200 text-sm max-w-2xl leading-relaxed font-sans">
               La suite de tracking ultime pour les joueurs exigeants. Cartographie Lidar temps réel,
-              journal de quêtes sans latence, optimisation d'itinéraire et trophées synchronisés.
+              journal de quêtes sans latence, optimisation d&apos;itinéraire et trophées synchronisés.
             </p>
           </div>
 
@@ -113,10 +128,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
                 cyberAudio.playChirp();
                 setShowCommercialModal(true);
               }}
-              className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all cursor-pointer"
+              className={`px-4 py-2.5 font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                isSunsetNeon
+                  ? 'bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white shadow-[0_0_20px_rgba(255,42,133,0.4)]'
+                  : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.3)]'
+              }`}
             >
               <Zap className="w-4 h-4 fill-current" />
-              <span>OFFRE COMMERCIALE & PRO</span>
+              <span>NEONOS PRO · 7 €</span>
             </button>
 
             <button
@@ -124,7 +143,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
                 cyberAudio.playClick();
                 onOpenNewItemModal();
               }}
-              className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-all cursor-pointer"
+              className={`px-4 py-2.5 font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                isSunsetNeon
+                  ? 'bg-[#00f0ff] hover:bg-[#4ff6ff] text-[#120428] shadow-[0_0_20px_rgba(0,240,255,0.35)]'
+                  : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.35)]'
+              }`}
             >
               <Plus className="w-4 h-4 stroke-[3]" />
               <span>NOUVELLE ENTRÉE</span>
@@ -304,7 +327,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
               {activeMission ? activeMission.title : 'Aucune mission restante'}
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              Rapport : +{activeMission?.rewardXp || 0} XP &amp; +{activeMission?.rewardCredits || 0} E$
+              Rapport : +{activeMission?.rewardXp || 0} XP &amp; +{activeMission?.rewardCredits || 0} Cr
             </p>
           </div>
 
@@ -401,7 +424,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
                 </div>
                 <div className="flex items-center gap-3 text-cyan-400 font-semibold">
                   <span>+{activeMission.rewardXp} XP</span>
-                  <span className="text-amber-400">+{activeMission.rewardCredits} E$</span>
+                  <span className="text-amber-400">+{activeMission.rewardCredits} Cr</span>
                 </div>
               </div>
             </div>
@@ -589,18 +612,18 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
       {/* ========================================================================= */}
       {showCommercialModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-2xl bg-[#090e1b] border-2 border-amber-500/60 p-6 sm:p-8 shadow-[0_0_50px_rgba(245,158,11,0.25)] space-y-6">
+          <div className="relative w-full max-w-2xl bg-[#160631] border-2 border-[#ff2a85]/70 p-6 sm:p-8 shadow-[0_0_50px_rgba(255,42,133,0.3)] space-y-6">
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+            <div className="flex items-start justify-between border-b border-[#ff2a85]/30 pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 text-[10px] font-mono-code font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    LICENCE COMMERCIALE COMPLÈTE
+                  <span className="px-2 py-0.5 text-[10px] font-mono-code font-bold uppercase bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] text-white">
+                    OFFRE DE LANCEMENT · 7 € À VIE
                   </span>
-                  <span className="text-xs font-mono-code text-slate-400">GAMING COMPANION PRO</span>
+                  <span className="text-xs font-mono-code text-[#00f0ff]">NEONOS PRO</span>
                 </div>
                 <h3 className="text-2xl font-bold font-hud text-white mt-1">
-                  POURQUOI CETTE APPLICATION FAIT VENDRE ?
+                  NEONOS FULL ACCESS · SECOND-SCREEN HUD
                 </h3>
               </div>
               <button
@@ -613,33 +636,33 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
 
             {/* Commercial Features List */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-3.5 bg-[#050811] border border-slate-800">
-                <div className="flex items-center gap-2 text-cyan-400 font-hud font-bold text-sm mb-1">
+              <div className="p-3.5 bg-[#120428] border border-[#ff2a85]/25">
+                <div className="flex items-center gap-2 text-[#00f0ff] font-hud font-bold text-sm mb-1">
                   <Zap className="w-4 h-4" />
-                  <span>Zéro Latence & Hors-Ligne</span>
+                  <span>Zéro Latence &amp; Hors-Ligne</span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
                   Fonctionne instantanément sur PC, Mac, Steam Deck, Android et iOS sans serveur ni abonnement tiers.
                 </p>
               </div>
 
-              <div className="p-3.5 bg-[#050811] border border-slate-800">
-                <div className="flex items-center gap-2 text-amber-400 font-hud font-bold text-sm mb-1">
+              <div className="p-3.5 bg-[#120428] border border-[#ff2a85]/25">
+                <div className="flex items-center gap-2 text-[#ff7b00] font-hud font-bold text-sm mb-1">
                   <Radio className="w-4 h-4" />
-                  <span>Radar Holo 360° & Synth Audio</span>
+                  <span>Radar Holo 360° &amp; Synth Audio</span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Immersion sonore procédurale cyberpunk et détection de portée qui captivent le joueur dès la première seconde.
+                  Immersion sonore procédurale et détection de portée qui captivent le joueur dès la première seconde.
                 </p>
               </div>
 
-              <div className="p-3.5 bg-[#050811] border border-slate-800">
-                <div className="flex items-center gap-2 text-emerald-400 font-hud font-bold text-sm mb-1">
+              <div className="p-3.5 bg-[#120428] border border-[#ff2a85]/25">
+                <div className="flex items-center gap-2 text-[#ff2a85] font-hud font-bold text-sm mb-1">
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Multi-Jeux & Sauvegardes JSON</span>
+                  <span>Multi-Univers &amp; Sauvegardes JSON</span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Supporte Night City, Elden Ring, Starfield ou n'importe quel RPG personnalisé avec export/import 1 clic.
+                  Supporte Sunset Néon, Secteur Cyber ou n&apos;importe quel monde ouvert personnalisé avec export/import 1 clic.
                 </p>
               </div>
 

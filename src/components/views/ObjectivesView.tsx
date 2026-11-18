@@ -128,9 +128,9 @@ export const ObjectivesView: React.FC = () => {
           <button
             onClick={() =>
               triggerAchievement(
-                'Légende Absolue de Night City',
+                'Légende de la Baie du Littoral',
                 'platinum',
-                'Trophée ultime débloqué. Vous dominez l’intégralité de la métropole.'
+                'Trophée ultime débloqué. Vous dominez l’intégralité de la baie côtière.'
               )
             }
             className="px-2 py-1 text-[10px] font-mono-code bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 cursor-pointer transition-all hover:shadow-[0_0_12px_rgba(6,182,212,0.4)]"

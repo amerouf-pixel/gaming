@@ -279,7 +279,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                   <div className="mt-3 pt-2.5 flex items-center justify-between text-xs font-mono-code text-slate-400">
                     <div className="flex items-center gap-3">
                       <span className="text-cyan-400">+{mission.rewardXp} XP</span>
-                      <span className="text-amber-400">+{mission.rewardCredits} E$</span>
+                      <span className="text-amber-400">+{mission.rewardCredits} Cr</span>
                     </div>
                   </div>
                 </div>

@@ -73,10 +73,13 @@ export interface TacticalNote {
   updatedAt: string;
 }
 
+export type UniverseTheme = 'sunset-neon' | 'cyber-grid' | 'open-world';
+
 export interface GameProfile {
   id: string;
   name: string;
   universe: string;
   playerTag: string;
   avatarIcon: string;
+  theme?: UniverseTheme;
 }

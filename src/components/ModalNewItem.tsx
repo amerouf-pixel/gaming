@@ -17,7 +17,7 @@ export const ModalNewItem: React.FC<ModalNewItemProps> = ({ isOpen, onClose }) =
   // Mission state
   const [missionTitle, setMissionTitle] = useState('');
   const [missionType, setMissionType] = useState<MissionType>('main');
-  const [missionDistrict, setMissionDistrict] = useState('Centre-Ville');
+  const [missionDistrict, setMissionDistrict] = useState('Ocean Boulevard');
   const [missionGiver, setMissionGiver] = useState('');
   const [missionDesc, setMissionDesc] = useState('');
   const [missionXp, setMissionXp] = useState('1000');
@@ -26,7 +26,7 @@ export const ModalNewItem: React.FC<ModalNewItemProps> = ({ isOpen, onClose }) =
   // Collectible state
   const [collectibleName, setCollectibleName] = useState('');
   const [collectibleCat, setCollectibleCat] = useState<CollectibleCategory>('relic');
-  const [collectibleDistrict, setCollectibleDistrict] = useState('Watson');
+  const [collectibleDistrict, setCollectibleDistrict] = useState('Port Marina');
   const [collectibleHint, setCollectibleHint] = useState('');
   const [collectibleCoords, setCollectibleCoords] = useState('');
 
@@ -225,7 +225,7 @@ export const ModalNewItem: React.FC<ModalNewItemProps> = ({ isOpen, onClose }) =
                 <label className="block text-xs font-mono-code text-slate-300 mb-1">Donneur d’ordre</label>
                 <input
                   type="text"
-                  placeholder="ex: Rogue, Regina, Franklin..."
+                  placeholder="ex: Elena Vance, Marco Reyes, Maya..."
                   value={missionGiver}
                   onChange={(e) => setMissionGiver(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-cyan-500"
@@ -254,7 +254,7 @@ export const ModalNewItem: React.FC<ModalNewItemProps> = ({ isOpen, onClose }) =
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono-code text-slate-300 mb-1">Crédits (E$)</label>
+                  <label className="block text-xs font-mono-code text-slate-300 mb-1">Crédits (Cr)</label>
                   <input
                     type="number"
                     value={missionCredits}
@@ -340,7 +340,7 @@ export const ModalNewItem: React.FC<ModalNewItemProps> = ({ isOpen, onClose }) =
                 <input
                   type="text"
                   required
-                  placeholder="ex: Rayfield Caliburn"
+                  placeholder="ex: Solaris Apex GT"
                   value={vehicleName}
                   onChange={(e) => setVehicleName(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
@@ -352,7 +352,7 @@ export const ModalNewItem: React.FC<ModalNewItemProps> = ({ isOpen, onClose }) =
                   <label className="block text-xs font-mono-code text-slate-300 mb-1">Constructeur</label>
                   <input
                     type="text"
-                    placeholder="ex: Rayfield, Quadra, Mizutani"
+                    placeholder="ex: Solaris Motors, Marlin Auto"
                     value={vehicleManufacturer}
                     onChange={(e) => setVehicleManufacturer(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
@@ -415,7 +415,7 @@ export const ModalNewItem: React.FC<ModalNewItemProps> = ({ isOpen, onClose }) =
                 <label className="block text-xs font-mono-code text-slate-300 mb-1">Lieu de déblocage</label>
                 <input
                   type="text"
-                  placeholder="ex: Conteneur secret dans le tunnel des Badlands"
+                  placeholder="ex: Hangar côtier près du phare Sunset Keys"
                   value={vehicleLoc}
                   onChange={(e) => setVehicleLoc(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-emerald-500"

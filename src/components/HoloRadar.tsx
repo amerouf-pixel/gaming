@@ -33,10 +33,12 @@ export const HoloRadar: React.FC = () => {
     missions,
     collectibles,
     vehicles,
+    activeTheme,
     setCurrentTab,
     toggleMissionStep,
     toggleCollectible,
   } = useGame();
+  const isViceSunset = activeTheme === 'sunset-neon';
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'missions' | 'collectibles' | 'vehicles'>('all');
   const [selectedTarget, setSelectedTarget] = useState<RadarTarget | null>(null);
@@ -62,7 +64,7 @@ export const HoloRadar: React.FC = () => {
         y: Math.sin(rad) * dist,
         distanceMeters: 280 + idx * 340,
         statusText: m.status === 'in_progress' ? 'EN COURS' : 'DISPONIBLE',
-        extraInfo: `+${m.rewardXp} XP · +${m.rewardCredits} E$`,
+        extraInfo: `+${m.rewardXp} XP · +${m.rewardCredits} Cr`,
         isPriority: m.priority,
       });
     });
@@ -131,11 +133,27 @@ export const HoloRadar: React.FC = () => {
   const zoomFactor = radarZoom === '2x' ? 1.4 : 1;
 
   return (
-    <div className="relative overflow-hidden bg-[#070b14] border border-cyan-950/90 rounded-2xl p-4 sm:p-6 shadow-2xl">
+    <div
+      className={`relative overflow-hidden rounded-2xl p-4 sm:p-6 shadow-2xl border transition-colors ${
+        isViceSunset
+          ? 'bg-[#160631]/95 border-[#ff2a85]/40 shadow-[0_0_35px_rgba(255,42,133,0.18)]'
+          : 'bg-[#070b14] border-cyan-950/90'
+      }`}
+    >
       {/* Decorative Top HUD Corner Coordinates */}
-      <div className="flex items-center justify-between border-b border-cyan-950/70 pb-3 mb-4">
+      <div
+        className={`flex items-center justify-between pb-3 mb-4 border-b ${
+          isViceSunset ? 'border-[#ff2a85]/30' : 'border-cyan-950/70'
+        }`}
+      >
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-cyan-500/10 border border-cyan-500/40 text-cyan-400">
+          <div
+            className={`p-1.5 border ${
+              isViceSunset
+                ? 'bg-[#ff2a85]/15 border-[#ff2a85]/50 text-[#00f0ff]'
+                : 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400'
+            }`}
+          >
             <Radio className="w-4 h-4 animate-pulse" />
           </div>
           <div>
@@ -185,36 +203,65 @@ export const HoloRadar: React.FC = () => {
         {/* Radar Viewport (7 Cols on desktop) */}
         <div className="lg:col-span-7 flex flex-col items-center justify-center">
           {/* Radar Disc Container */}
-          <div className="relative w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] rounded-full border-2 border-cyan-500/30 bg-[#040810] shadow-[0_0_50px_rgba(6,182,212,0.15)] flex items-center justify-center select-none overflow-hidden">
+          <div
+            className={`relative w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] rounded-full border-2 flex items-center justify-center select-none overflow-hidden ${
+              isViceSunset
+                ? 'border-[#ff2a85]/50 bg-[#0e0320] shadow-[0_0_50px_rgba(255,42,133,0.22)]'
+                : 'border-cyan-500/30 bg-[#040810] shadow-[0_0_50px_rgba(6,182,212,0.15)]'
+            }`}
+          >
             {/* Concentric Range Rings */}
-            <div className="absolute w-[75%] h-[75%] rounded-full border border-cyan-500/20" />
-            <div className="absolute w-[50%] h-[50%] rounded-full border border-cyan-500/25 border-dashed" />
-            <div className="absolute w-[25%] h-[25%] rounded-full border border-cyan-500/20" />
+            <div
+              className={`absolute w-[75%] h-[75%] rounded-full border ${
+                isViceSunset ? 'border-[#ff2a85]/25' : 'border-cyan-500/20'
+              }`}
+            />
+            <div
+              className={`absolute w-[50%] h-[50%] rounded-full border border-dashed ${
+                isViceSunset ? 'border-[#00f0ff]/35' : 'border-cyan-500/25'
+              }`}
+            />
+            <div
+              className={`absolute w-[25%] h-[25%] rounded-full border ${
+                isViceSunset ? 'border-[#ff7b00]/30' : 'border-cyan-500/20'
+              }`}
+            />
 
             {/* Crosshair Axes */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-full h-[1px] bg-cyan-500/20" />
-              <div className="h-full w-[1px] bg-cyan-500/20 absolute" />
+              <div className={`w-full h-[1px] ${isViceSunset ? 'bg-[#ff2a85]/25' : 'bg-cyan-500/20'}`} />
+              <div className={`h-full w-[1px] absolute ${isViceSunset ? 'bg-[#00f0ff]/25' : 'bg-cyan-500/20'}`} />
             </div>
 
             {/* Azimuth Angle Marks */}
-            <span className="absolute top-2 text-[9px] font-mono-code text-cyan-400/80 font-bold">N 000°</span>
-            <span className="absolute bottom-2 text-[9px] font-mono-code text-cyan-400/60 font-bold">S 180°</span>
-            <span className="absolute right-2 text-[9px] font-mono-code text-cyan-400/60 font-bold">E 090°</span>
-            <span className="absolute left-2 text-[9px] font-mono-code text-cyan-400/60 font-bold">O 270°</span>
+            <span className="absolute top-2 text-[9px] font-mono-code text-[#00f0ff]/85 font-bold">N 000°</span>
+            <span className="absolute bottom-2 text-[9px] font-mono-code text-[#ff2a85]/80 font-bold">S 180°</span>
+            <span className="absolute right-2 text-[9px] font-mono-code text-[#ff7b00]/80 font-bold">E 090°</span>
+            <span className="absolute left-2 text-[9px] font-mono-code text-[#00f0ff]/75 font-bold">O 270°</span>
 
             {/* Rotating Radar Sweep Beam */}
             <div
               className="absolute inset-0 rounded-full pointer-events-none animate-[spin_5s_linear_infinite]"
               style={{
-                background:
-                  'conic-gradient(from 0deg, rgba(6, 182, 212, 0.4) 0deg, rgba(6, 182, 212, 0.08) 45deg, transparent 75deg)',
+                background: isViceSunset
+                  ? 'conic-gradient(from 0deg, rgba(0, 240, 255, 0.42) 0deg, rgba(255, 42, 133, 0.14) 45deg, transparent 78deg)'
+                  : 'conic-gradient(from 0deg, rgba(6, 182, 212, 0.4) 0deg, rgba(6, 182, 212, 0.08) 45deg, transparent 75deg)',
               }}
             />
 
             {/* Center Player Beacon */}
-            <div className="relative z-10 w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_12px_#06b6d4] flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full border border-cyan-400 animate-ping opacity-75" />
+            <div
+              className={`relative z-10 w-3 h-3 rounded-full flex items-center justify-center ${
+                isViceSunset
+                  ? 'bg-[#00f0ff] shadow-[0_0_12px_#00f0ff]'
+                  : 'bg-cyan-400 shadow-[0_0_12px_#06b6d4]'
+              }`}
+            >
+              <div
+                className={`w-6 h-6 rounded-full border animate-ping opacity-75 ${
+                  isViceSunset ? 'border-[#ff2a85]' : 'border-cyan-400'
+                }`}
+              />
             </div>
 
             {/* Interactive Target Blips */}
@@ -289,7 +336,13 @@ export const HoloRadar: React.FC = () => {
         </div>
 
         {/* Right Panel: Active Target Telemetry HUD (5 Cols on desktop) */}
-        <div className="lg:col-span-5 bg-[#0a101d] border border-cyan-950/80 p-4 sm:p-5 flex flex-col justify-between min-h-[300px] shadow-lg">
+        <div
+          className={`lg:col-span-5 p-4 sm:p-5 flex flex-col justify-between min-h-[300px] shadow-lg border ${
+            isViceSunset
+              ? 'bg-[#120428]/90 border-[#ff2a85]/35'
+              : 'bg-[#0a101d] border-cyan-950/80'
+          }`}
+        >
           {selectedTarget ? (
             <div className="space-y-4">
               {/* Header Dossier */}

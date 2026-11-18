@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { cyberAudio } from '../utils/cyberAudio';
 import { ArrowLeft, Shield, CheckCircle2, Lock, Sparkles, X } from 'lucide-react';
 
+// COLLER MON LIEN GUMROAD OU WHOP ICI
+const DEFAULT_REDIRECT_URL = 'https://gumroad.com/l/neonos-full-access';
+
 interface CheckoutTerminalProps {
   planName?: string;
   price?: string;
@@ -12,15 +15,15 @@ interface CheckoutTerminalProps {
 }
 
 export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
-  planName = 'LICENCE CORPO ACCESS',
-  price = '29.00',
-  duration = 'LIAISON PERMANENTE (À VIE)',
-  redirectUrl = 'https://buy.stripe.com/test_ton_lien_de_paiement',
+  planName = 'NEONOS FULL ACCESS',
+  price = '7.00',
+  duration = 'PAIEMENT UNIQUE · ACCÈS À VIE',
+  redirectUrl = DEFAULT_REDIRECT_URL,
   onSuccess,
   onClose,
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [statusText, setStatusText] = useState('INITIALISER LE TRANSFERT DE CRÉDITS');
+  const [statusText, setStatusText] = useState('INITIALISER LE PAIEMENT SÉCURISÉ');
   const [progress, setProgress] = useState(0);
   const [glitchActive, setGlitchActive] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
@@ -35,10 +38,10 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
 
       const sequence = [
         { time: 0, text: "Établissement d'une connexion sécurisée...", progress: 15 },
-        { time: 1400, text: "Cryptage des données (AES-256)...", progress: 45 },
-        { time: 2800, text: "Liaison au serveur corpo en cours...", progress: 65 },
-        { time: 4200, text: "Autorisation des Eurodollars...", progress: 85 },
-        { time: 5600, text: "TRANSFERT APPROUVÉ - ACCÈS DÉVERROUILLÉ", progress: 100 },
+        { time: 1400, text: 'Cryptage des données (AES-256)...', progress: 45 },
+        { time: 2800, text: 'Liaison au serveur NeonOS en cours...', progress: 65 },
+        { time: 4200, text: `Autorisation du paiement (${price} €)...`, progress: 85 },
+        { time: 5600, text: 'TRANSFERT APPROUVÉ - ACCÈS DÉVERROUILLÉ', progress: 100 },
       ];
 
       const timers = sequence.map((step) =>
@@ -49,14 +52,13 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
           if (step.progress === 100) {
             setGlitchActive(false);
             cyberAudio.playFanfare();
-            setStatusText("REDIRECTION VERS LA PASSERELLE SÉCURISÉE...");
+            setStatusText('REDIRECTION VERS LA PASSERELLE SÉCURISÉE...');
 
-            // Remplacer l'URL ci-dessous par ton vrai lien Stripe Payment ou Lemon Squeezy
             setTimeout(() => {
               try {
-                window.location.href = redirectUrl || "https://buy.stripe.com/test_ton_lien_de_paiement";
+                window.location.href = redirectUrl || DEFAULT_REDIRECT_URL;
               } catch (e) {
-                console.error("Redirection error:", e);
+                console.error('Redirection error:', e);
               }
             }, 1500); // Laisse le temps au joueur de lire le message avant de quitter la page
           } else {
@@ -67,7 +69,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
 
       return () => timers.forEach(clearTimeout);
     }
-  }, [isProcessing, redirectUrl]);
+  }, [isProcessing, redirectUrl, price]);
 
   const handleCheckout = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +97,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
 
   return (
     <>
-      {/* Styles inline pour les effets spécifiques Cyberpunk */}
+      {/* Styles inline pour les effets spécifiques NeonOS */}
       <style>
         {`
           @keyframes glitch-anim {
@@ -122,7 +124,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
         `}
       </style>
 
-      <div className="min-h-screen bg-[#090d16] font-mono text-cyan-500 p-4 md:p-8 flex items-center justify-center relative overflow-hidden select-none">
+      <div className="min-h-screen bg-[#120428] font-mono text-[#00f0ff] p-4 md:p-8 flex items-center justify-center relative overflow-hidden select-none">
         {/* Overlay Scanline conditionnel */}
         <div
           className={`absolute inset-0 pointer-events-none z-50 transition-opacity duration-300 ${
@@ -130,8 +132,17 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
           }`}
         />
 
-        {/* Effet radial en fond */}
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-900/10 via-[#090d16] to-[#090d16] z-0" />
+        {/* Effet radial Sunset Néon en fond */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            background: `
+              radial-gradient(circle at 25% 25%, rgba(255, 42, 133, 0.16) 0%, transparent 50%),
+              radial-gradient(circle at 75% 75%, rgba(0, 240, 255, 0.12) 0%, transparent 50%),
+              #120428
+            `,
+          }}
+        />
 
         {/* Floating Top Controls (Retour / Annuler) */}
         {onClose && (
@@ -140,7 +151,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
               cyberAudio.playClick();
               onClose();
             }}
-            className="absolute top-4 left-4 md:top-6 md:left-6 z-40 px-3 py-1.5 bg-[#050912]/90 border border-slate-800 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/50 text-xs font-hud uppercase flex items-center gap-1.5 cursor-pointer transition-all"
+            className="absolute top-4 left-4 md:top-6 md:left-6 z-40 px-3 py-1.5 bg-[#1b0838]/95 border border-[#ff2a85]/40 text-slate-200 hover:text-[#00f0ff] hover:border-[#00f0ff]/60 text-xs font-hud uppercase flex items-center gap-1.5 cursor-pointer transition-all"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>RETOUR</span>
@@ -148,63 +159,74 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
         )}
 
         <div
-          className={`w-full max-w-5xl border border-cyan-500/50 bg-[#090d16]/90 relative z-10 shadow-[0_0_30px_rgba(6,182,212,0.15)] flex flex-col md:flex-row transition-all duration-300 ${
+          className={`w-full max-w-5xl border border-[#ff2a85]/60 bg-[#160631]/95 relative z-10 shadow-[0_0_35px_rgba(255,42,133,0.2)] flex flex-col md:flex-row transition-all duration-300 ${
             glitchActive
-              ? 'animate-glitch border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.25)] text-red-400'
+              ? 'animate-glitch border-[#ff7b00] shadow-[0_0_30px_rgba(255,123,0,0.35)] text-[#ff7b00]'
               : ''
           }`}
         >
-          {/* Panneau de gauche : RÉSUMÉ D'EXTRACTION */}
-          <div className="flex-1 border-b md:border-b-0 md:border-r border-cyan-500/30 p-6 md:p-8 flex flex-col justify-between">
+          {/* Panneau de gauche : RÉSUMÉ DE COMMANDE */}
+          <div className="flex-1 border-b md:border-b-0 md:border-r border-[#ff2a85]/30 p-6 md:p-8 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-3 h-3 ${
-                      glitchActive ? 'bg-red-500' : 'bg-cyan-500'
-                    } animate-pulse`}
-                  />
-                  <h2 className="text-xl tracking-widest text-white uppercase font-bold">
-                    Résumé d'extraction
-                  </h2>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`w-2.5 h-2.5 ${
+                        glitchActive ? 'bg-[#ff7b00]' : 'bg-[#ff2a85]'
+                      }`}
+                    />
+                    <h2 className="text-xl tracking-widest text-white uppercase font-bold">
+                      Terminal NeonOS
+                    </h2>
+                  </div>
+                  <p className="text-[11px] text-[#00f0ff]/80 mt-0.5 tracking-wider uppercase">
+                    Second-Screen Tactical HUD
+                  </p>
                 </div>
-                {onClose && (
-                  <button
-                    onClick={onClose}
-                    className="md:hidden text-slate-500 hover:text-white p-1"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                )}
+
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] text-white">
+                    OFFRE DE LANCEMENT
+                  </span>
+                  {onClose && (
+                    <button
+                      onClick={onClose}
+                      className="md:hidden text-slate-400 hover:text-white p-1"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="flex-1">
                 <table className="w-full text-sm text-left">
                   <tbody>
-                    <tr className="border-b border-cyan-500/20">
-                      <td className="py-4 text-slate-400">CONTRAT</td>
+                    <tr className="border-b border-[#ff2a85]/20">
+                      <td className="py-4 text-slate-300">LICENCE</td>
                       <td className="py-4 text-right text-white font-bold">{planName}</td>
                     </tr>
-                    <tr className="border-b border-cyan-500/20">
-                      <td className="py-4 text-slate-400">DURÉE</td>
-                      <td className="py-4 text-right text-cyan-300">{duration}</td>
+                    <tr className="border-b border-[#ff2a85]/20">
+                      <td className="py-4 text-slate-300">DURÉE</td>
+                      <td className="py-4 text-right text-[#00f0ff]">{duration}</td>
                     </tr>
-                    <tr className="border-b border-cyan-500/20">
-                      <td className="py-4 text-slate-400">MODULES</td>
+                    <tr className="border-b border-[#ff2a85]/20">
+                      <td className="py-4 text-slate-300">MODULES INCLUS</td>
                       <td className="py-4 text-right text-xs leading-relaxed">
-                        <span className="text-cyan-400">[TUNING_GARAGE]</span>
+                        <span className="text-[#00f0ff]">[SUNSET_NEON_THEME]</span>
                         <br />
-                        <span className="text-cyan-400">[RADAR_HOLO_360]</span>
+                        <span className="text-[#ff2a85]">[RADAR_HOLO_360]</span>
                         <br />
-                        <span className="text-cyan-400">[TROPHY_TRACKER]</span>
+                        <span className="text-[#ff7b00]">[TROPHY_TRACKER]</span>
                         <br />
-                        <span className="text-cyan-400">[LOCAL_VAULT_AES]</span>
+                        <span className="text-[#00f0ff]">[LOCAL_VAULT_JSON]</span>
                       </td>
                     </tr>
-                    <tr className="border-b-2 border-cyan-500">
-                      <td className="py-6 text-slate-400 font-bold">MONTANT TOTAL</td>
-                      <td className="py-6 text-right text-2xl text-white font-bold tracking-wider">
-                        {price} <span className="text-cyan-500 text-sm">E$</span>
+                    <tr className="border-b-2 border-[#ff2a85]">
+                      <td className="py-6 text-slate-200 font-bold">MONTANT TOTAL</td>
+                      <td className="py-6 text-right text-2xl text-white font-bold tracking-wider tabular-nums">
+                        {price} <span className="text-[#ff7b00] text-lg">€</span>
                       </td>
                     </tr>
                   </tbody>
@@ -212,32 +234,31 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
               </div>
             </div>
 
-            <div className="mt-8 text-xs text-slate-500 leading-relaxed pt-4 border-t border-slate-900">
+            <div className="mt-8 text-xs text-slate-400 leading-relaxed pt-4 border-t border-[#ff2a85]/20">
               <p>
-                &gt; AVERTISSEMENT: Toute tentative de falsification de crédits entraînera une
-                traque immédiate par la NetWatch.
+                &gt; NEONOS SENTINEL : Connexion chiffrée de bout en bout. Paiement unique sans aucun renouvellement automatique.
               </p>
-              <p className="mt-1 text-slate-600">&gt; HASH DE SÉCURITÉ: 0x8F9A...4B2C</p>
+              <p className="mt-1 text-slate-500">&gt; HASH DE SÉCURITÉ: 0x8F9A...4B2C</p>
             </div>
           </div>
 
           {/* Panneau de droite : LIAISON BANCAIRE */}
-          <div className="flex-1 p-6 md:p-8 flex flex-col justify-between relative bg-black/30">
+          <div className="flex-1 p-6 md:p-8 flex flex-col justify-between relative bg-[#0e0320]/65">
             <div>
               <div className="flex justify-between items-end mb-6">
                 <h2 className="text-xl tracking-widest text-white uppercase font-bold">
-                  Uplink Bancaire
+                  Uplink Paiement
                 </h2>
-                <span className="text-xs text-cyan-400 border border-cyan-500/30 px-2 py-1 bg-cyan-950/40 font-mono-code flex items-center gap-1.5">
-                  <Shield className="w-3 h-3 text-cyan-400" />
+                <span className="text-xs text-[#00f0ff] border border-[#00f0ff]/40 px-2 py-1 bg-[#1b0838] font-mono-code flex items-center gap-1.5">
+                  <Shield className="w-3 h-3 text-[#00f0ff]" />
                   SECURE 256-BIT
                 </span>
               </div>
 
               {/* Quick Auto-Fill Demo Chip for easy evaluation */}
               {!isProcessing && progress < 100 && (
-                <div className="mb-5 p-2.5 bg-cyan-950/30 border border-cyan-800/60 flex items-center justify-between text-xs">
-                  <span className="text-slate-400 text-[11px]">Mode démonstration rapide :</span>
+                <div className="mb-5 p-2.5 bg-[#1b0838]/90 border border-[#ff2a85]/35 flex items-center justify-between gap-2 text-xs">
+                  <span className="text-slate-300 text-[11px]">Mode démonstration rapide :</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -246,18 +267,18 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                       setCardExpiry('12/28');
                       setCardCvc('777');
                     }}
-                    className="px-2 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/50 text-[10px] font-mono uppercase tracking-wider cursor-pointer transition-colors"
+                    className="px-2 py-1 bg-[#ff2a85]/20 hover:bg-[#ff2a85]/35 text-[#00f0ff] border border-[#ff2a85]/60 text-[10px] font-mono uppercase tracking-wider cursor-pointer transition-colors"
                   >
-                    [INJECTER PUCE TEST VIP]
+                    [REMPLIR TEST VIP]
                   </button>
                 </div>
               )}
 
               <form onSubmit={handleCheckout} className="space-y-6">
-                {/* Numéro de compte */}
+                {/* Numéro de carte */}
                 <div className="space-y-2">
-                  <label className="text-xs text-slate-400 uppercase tracking-wider block">
-                    Numéro de puce de crédit
+                  <label className="text-xs text-slate-300 uppercase tracking-wider block">
+                    Numéro de carte
                   </label>
                   <input
                     type="text"
@@ -266,7 +287,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                     onChange={handleCardNumberChange}
                     placeholder="4532 8910 2345 6789"
                     maxLength={19}
-                    className="w-full bg-slate-950/50 border border-cyan-500/30 p-3 text-cyan-300 font-mono text-base md:text-lg rounded-none focus:outline-none focus:border-cyan-400 focus:bg-cyan-900/20 focus:shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all placeholder:text-cyan-900/50 disabled:opacity-50"
+                    className="w-full bg-[#120428] border border-[#ff2a85]/40 p-3 text-[#00f0ff] font-mono text-base md:text-lg rounded-none focus:outline-none focus:border-[#00f0ff] focus:bg-[#1b0838] focus:shadow-[0_0_12px_rgba(0,240,255,0.3)] transition-all placeholder:text-slate-600 disabled:opacity-50"
                     required
                   />
                 </div>
@@ -274,7 +295,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                 <div className="grid grid-cols-2 gap-4 md:gap-6">
                   {/* Expiration */}
                   <div className="space-y-2">
-                    <label className="text-xs text-slate-400 uppercase tracking-wider block">
+                    <label className="text-xs text-slate-300 uppercase tracking-wider block">
                       Expiration (MM/AA)
                     </label>
                     <input
@@ -284,14 +305,14 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                       onChange={handleExpiryChange}
                       placeholder="12/28"
                       maxLength={5}
-                      className="w-full bg-slate-950/50 border border-cyan-500/30 p-3 text-cyan-300 font-mono text-base md:text-lg rounded-none focus:outline-none focus:border-cyan-400 focus:bg-cyan-900/20 focus:shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all placeholder:text-cyan-900/50 disabled:opacity-50"
+                      className="w-full bg-[#120428] border border-[#ff2a85]/40 p-3 text-[#00f0ff] font-mono text-base md:text-lg rounded-none focus:outline-none focus:border-[#00f0ff] focus:bg-[#1b0838] focus:shadow-[0_0_12px_rgba(0,240,255,0.3)] transition-all placeholder:text-slate-600 disabled:opacity-50"
                       required
                     />
                   </div>
 
                   {/* CVC */}
                   <div className="space-y-2">
-                    <label className="text-xs text-slate-400 uppercase tracking-wider block">
+                    <label className="text-xs text-slate-300 uppercase tracking-wider block">
                       Code Auth (CVC)
                     </label>
                     <input
@@ -301,7 +322,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                       onChange={(e) => setCardCvc(e.target.value.substring(0, 4))}
                       placeholder="•••"
                       maxLength={4}
-                      className="w-full bg-slate-950/50 border border-cyan-500/30 p-3 text-cyan-300 font-mono text-base md:text-lg rounded-none focus:outline-none focus:border-amber-400 focus:bg-amber-900/20 focus:shadow-[0_0_10px_rgba(251,191,36,0.3)] transition-all placeholder:text-cyan-900/50 disabled:opacity-50"
+                      className="w-full bg-[#120428] border border-[#ff2a85]/40 p-3 text-[#00f0ff] font-mono text-base md:text-lg rounded-none focus:outline-none focus:border-[#ff7b00] focus:bg-[#1b0838] focus:shadow-[0_0_12px_rgba(255,123,0,0.3)] transition-all placeholder:text-slate-600 disabled:opacity-50"
                       required
                     />
                   </div>
@@ -311,9 +332,9 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                 <div className="pt-6">
                   {progress === 100 ? (
                     <div className="space-y-3">
-                      <div className="p-3 bg-emerald-950/40 border border-emerald-500/80 text-emerald-300 text-xs font-mono flex items-center gap-2">
+                      <div className="p-3 bg-emerald-950/50 border border-emerald-500/80 text-emerald-300 text-xs font-mono flex items-center gap-2">
                         <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                        <span>TRANSFERT APPROUVÉ · VOS ACCRÉDITATIONS SONT ACTIVES</span>
+                        <span>PAIEMENT APPROUVÉ · LICENCE NEONOS FULL ACCESS ACTIVE</span>
                       </div>
 
                       <button
@@ -327,10 +348,10 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                           cyberAudio.playFanfare();
                           if (onSuccess) onSuccess();
                         }}
-                        className="w-full py-4 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-hud font-bold text-sm tracking-widest uppercase shadow-[0_0_25px_rgba(16,185,129,0.7)] cursor-pointer transition-all flex items-center justify-center gap-2"
+                        className="w-full py-4 bg-gradient-to-r from-[#ff2a85] via-[#ff7b00] to-[#00f0ff] hover:brightness-110 text-white font-hud font-bold text-sm tracking-widest uppercase shadow-[0_0_25px_rgba(255,42,133,0.6)] cursor-pointer transition-all flex items-center justify-center gap-2"
                       >
                         <Sparkles className="w-4 h-4" />
-                        <span>OUVRIR LE COCKPIT / TERMINAL PRINCIPAL</span>
+                        <span>OUVRIR NEONOS TERMINAL PRINCIPAL</span>
                       </button>
                     </div>
                   ) : (
@@ -339,15 +360,15 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                       disabled={isProcessing}
                       className={`w-full relative overflow-hidden group border rounded-none p-4 transition-all duration-300 cursor-pointer ${
                         glitchActive
-                          ? 'border-red-500 bg-red-900/20 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.5)]'
-                          : 'border-cyan-500 bg-cyan-500/10 hover:bg-cyan-500/20 hover:shadow-[0_0_20px_rgba(6,182,212,0.6)] text-cyan-300'
+                          ? 'border-[#ff7b00] bg-[#ff7b00]/20 text-[#ff7b00] shadow-[0_0_20px_rgba(255,123,0,0.5)]'
+                          : 'border-[#ff2a85] bg-gradient-to-r from-[#ff2a85]/20 to-[#ff7b00]/20 hover:from-[#ff2a85]/35 hover:to-[#ff7b00]/35 hover:shadow-[0_0_22px_rgba(255,42,133,0.55)] text-white'
                       }`}
                     >
                       {/* Barre de progression interne au bouton */}
                       {isProcessing && (
                         <div
                           className={`absolute inset-y-0 left-0 transition-all duration-300 ease-out z-0 ${
-                            glitchActive ? 'bg-red-500/30' : 'bg-cyan-500/30'
+                            glitchActive ? 'bg-[#ff7b00]/30' : 'bg-[#00f0ff]/30'
                           }`}
                           style={{ width: `${progress}%` }}
                         />
@@ -381,9 +402,10 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
               </form>
             </div>
 
-            <div className="pt-4 flex items-center justify-between text-[11px] text-slate-500 font-mono-code">
-              <span>SÉCURITÉ MILITAIRE ARASAKA</span>
-              <span className="text-cyan-500 flex items-center gap-1">
+            <div className="pt-4 border-t border-[#ff2a85]/20 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 font-mono-code">
+              <span>NEONOS SECURE GATEWAY</span>
+              <span className="text-slate-400/90">Propulsé par 10JITAL Production · © 2026</span>
+              <span className="text-[#00f0ff] flex items-center gap-1">
                 <Lock className="w-3 h-3" />
                 LIAISON CRYPTÉE
               </span>

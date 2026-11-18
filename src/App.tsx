@@ -13,15 +13,22 @@ import { NotesView } from './components/views/NotesView';
 import { StatsView } from './components/views/StatsView';
 import { ModalNewItem } from './components/ModalNewItem';
 import { LandingPage } from './components/LandingPage';
+import { StreamerOverlay } from './components/StreamerOverlay';
 import { useAchievementWatcher } from './hooks/useAchievementWatcher';
 
 const AppContent: React.FC = () => {
-  const { currentTab, objectives } = useGame();
+  const { currentTab, objectives, activeTheme } = useGame();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLandingMode, setIsLandingMode] = useState(false);
+  const [isStreamerMode, setIsStreamerMode] = useState(false);
+  const isViceSunset = activeTheme === 'sunset-neon';
 
   // Automatically listen for objective completion and dispatch achievement toasts
   useAchievementWatcher(objectives);
+
+  if (isStreamerMode) {
+    return <StreamerOverlay onExit={() => setIsStreamerMode(false)} />;
+  }
 
   if (isLandingMode) {
     return <LandingPage onEnterApp={() => setIsLandingMode(false)} />;
@@ -54,12 +61,21 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
+    <div
+      className={`relative min-h-screen text-slate-100 flex flex-col font-sans transition-colors duration-500 ${
+        isViceSunset
+          ? 'bg-[#120428] selection:bg-[#ff2a85]/30 selection:text-[#00f0ff]'
+          : 'bg-[#090d16] selection:bg-cyan-500/30 selection:text-cyan-200'
+      }`}
+    >
       {/* Tactical Multi-Layer Background (Grid, CRT, Grain, Vignette) */}
       <CyberBackground />
 
       {/* Tactical Top Bar */}
-      <Header onOpenLanding={() => setIsLandingMode(true)} />
+      <Header
+        onOpenLanding={() => setIsLandingMode(true)}
+        onOpenStreamer={() => setIsStreamerMode(true)}
+      />
 
       {/* Main Tab Navigation */}
       <BottomNav />
@@ -68,6 +84,13 @@ const AppContent: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {renderActiveView()}
       </main>
+
+      {/* Discreet 10JITAL Production Signature */}
+      <footer className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-20 md:pb-4 pt-2 flex justify-end">
+        <span className="text-[11px] font-mono-code text-slate-500/80 select-none">
+          © 2026 10JITAL Production
+        </span>
+      </footer>
 
       {/* Add New Entry Modal */}
       <ModalNewItem isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />

@@ -7,6 +7,7 @@ import {
   Objective,
   TacticalNote,
   GameProfile,
+  UniverseTheme,
 } from '../types';
 import {
   INITIAL_PROFILES,
@@ -22,6 +23,7 @@ interface GameContextType {
   setCurrentTab: (tab: TabType) => void;
   profiles: GameProfile[];
   activeProfile: GameProfile;
+  activeTheme: UniverseTheme;
   setActiveProfile: (profile: GameProfile) => void;
   // Missions
   missions: Mission[];
@@ -67,12 +69,37 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'gaming_companion_data_v1';
+const STORAGE_KEY = 'neonos_data_v3';
+const ACTIVE_PROFILE_KEY = 'neonos_active_profile_v2';
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
   const [profiles] = useState<GameProfile[]>(INITIAL_PROFILES);
-  const [activeProfile, setActiveProfile] = useState<GameProfile>(INITIAL_PROFILES[0]);
+  const [activeProfile, setActiveProfile] = useState<GameProfile>(() => {
+    try {
+      const savedId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+      if (savedId) {
+        const match = INITIAL_PROFILES.find((p) => p.id === savedId);
+        if (match) return match;
+      }
+    } catch {
+      // ignore storage error
+    }
+    return INITIAL_PROFILES[0]; // Default: Sunset Néon
+  });
+
+  const activeTheme: UniverseTheme = activeProfile.theme || 'sunset-neon';
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTIVE_PROFILE_KEY, activeProfile.id);
+    } catch {
+      // ignore storage error
+    }
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', activeTheme);
+    }
+  }, [activeProfile, activeTheme]);
 
   // Load from local storage or defaults
   const [missions, setMissions] = useState<Mission[]>(() => {
@@ -333,7 +360,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `gaming-companion-backup-${Date.now()}.json`;
+    link.download = `neonos-backup-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -362,6 +389,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentTab,
         profiles,
         activeProfile,
+        activeTheme,
         setActiveProfile,
         missions,
         toggleMissionStatus,
