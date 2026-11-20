@@ -1,4 +1,4 @@
-# 🎮 Gaming Companion - Guide de Lancement sur votre Bureau
+# 🎮 JITALX — THE STREAMER COMMAND HUB · Guide de Lancement sur votre Bureau
 
 Félicitations ! Vous avez téléchargé le projet sur votre ordinateur.
 

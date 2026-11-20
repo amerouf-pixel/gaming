@@ -3,7 +3,7 @@ import { cyberAudio } from '../utils/cyberAudio';
 import { ArrowLeft, Shield, CheckCircle2, Lock, Sparkles, X } from 'lucide-react';
 
 // COLLER MON LIEN GUMROAD OU WHOP ICI
-const DEFAULT_REDIRECT_URL = 'https://gumroad.com/l/neonos-full-access';
+const DEFAULT_REDIRECT_URL = 'https://gumroad.com/l/jitalx-full-access';
 
 interface CheckoutTerminalProps {
   planName?: string;
@@ -15,7 +15,7 @@ interface CheckoutTerminalProps {
 }
 
 export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
-  planName = 'NEONOS FULL ACCESS',
+  planName = 'JITALX FULL ACCESS',
   price = '7.00',
   duration = 'PAIEMENT UNIQUE · ACCÈS À VIE',
   redirectUrl = DEFAULT_REDIRECT_URL,
@@ -39,7 +39,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
       const sequence = [
         { time: 0, text: "Établissement d'une connexion sécurisée...", progress: 15 },
         { time: 1400, text: 'Cryptage des données (AES-256)...', progress: 45 },
-        { time: 2800, text: 'Liaison au serveur NeonOS en cours...', progress: 65 },
+        { time: 2800, text: 'Liaison au serveur JITALX en cours...', progress: 65 },
         { time: 4200, text: `Autorisation du paiement (${price} €)...`, progress: 85 },
         { time: 5600, text: 'TRANSFERT APPROUVÉ - ACCÈS DÉVERROUILLÉ', progress: 100 },
       ];
@@ -97,7 +97,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
 
   return (
     <>
-      {/* Styles inline pour les effets spécifiques NeonOS */}
+      {/* Styles inline pour les effets spécifiques JITALX */}
       <style>
         {`
           @keyframes glitch-anim {
@@ -177,11 +177,11 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                       }`}
                     />
                     <h2 className="text-xl tracking-widest text-white uppercase font-bold">
-                      Terminal NeonOS
+                      Terminal JITALX
                     </h2>
                   </div>
                   <p className="text-[11px] text-[#00f0ff]/80 mt-0.5 tracking-wider uppercase">
-                    Second-Screen Tactical HUD
+                    THE STREAMER COMMAND HUB
                   </p>
                 </div>
 
@@ -236,7 +236,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
 
             <div className="mt-8 text-xs text-slate-400 leading-relaxed pt-4 border-t border-[#ff2a85]/20">
               <p>
-                &gt; NEONOS SENTINEL : Connexion chiffrée de bout en bout. Paiement unique sans aucun renouvellement automatique.
+                &gt; JITALX SENTINEL : Connexion chiffrée de bout en bout. Paiement unique sans aucun renouvellement automatique.
               </p>
               <p className="mt-1 text-slate-500">&gt; HASH DE SÉCURITÉ: 0x8F9A...4B2C</p>
             </div>
@@ -334,7 +334,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                     <div className="space-y-3">
                       <div className="p-3 bg-emerald-950/50 border border-emerald-500/80 text-emerald-300 text-xs font-mono flex items-center gap-2">
                         <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                        <span>PAIEMENT APPROUVÉ · LICENCE NEONOS FULL ACCESS ACTIVE</span>
+                        <span>PAIEMENT APPROUVÉ · LICENCE JITALX FULL ACCESS ACTIVE</span>
                       </div>
 
                       <button
@@ -351,7 +351,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                         className="w-full py-4 bg-gradient-to-r from-[#ff2a85] via-[#ff7b00] to-[#00f0ff] hover:brightness-110 text-white font-hud font-bold text-sm tracking-widest uppercase shadow-[0_0_25px_rgba(255,42,133,0.6)] cursor-pointer transition-all flex items-center justify-center gap-2"
                       >
                         <Sparkles className="w-4 h-4" />
-                        <span>OUVRIR NEONOS TERMINAL PRINCIPAL</span>
+                        <span>OUVRIR JITALX TERMINAL PRINCIPAL</span>
                       </button>
                     </div>
                   ) : (
@@ -403,7 +403,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
             </div>
 
             <div className="pt-4 border-t border-[#ff2a85]/20 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 font-mono-code">
-              <span>NEONOS SECURE GATEWAY</span>
+              <span>JITALX SECURE GATEWAY</span>
               <span className="text-slate-400/90">Propulsé par 10JITAL Production · © 2026</span>
               <span className="text-[#00f0ff] flex items-center gap-1">
                 <Lock className="w-3 h-3" />

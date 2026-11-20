@@ -18,6 +18,12 @@ import {
   Radio,
   Trophy,
   Compass,
+  Link2,
+  Check,
+  Plus,
+  Minus,
+  CheckCircle2,
+  Target,
 } from 'lucide-react';
 
 type OverlayBgMode = 'chroma' | 'transparent' | 'sunset';
@@ -30,18 +36,55 @@ interface StreamerOverlayProps {
 const STREAMER_NAME_KEY = 'neonos_streamer_name_v1';
 const STREAM_TITLE_KEY = 'neonos_stream_title_v1';
 const HIDE_SIGNATURE_KEY = 'neonos_streamer_hide_sig_v1';
+const CHALLENGE_LABEL_KEY = 'neonos_streamer_challenge_label_v1';
 
 export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
-  const { overallProgress, stats, activeProfile } = useGame();
+  const { overallProgress, stats, activeProfile, missions, toggleMissionStep } = useGame();
+
+  // Read optional OBS Browser Source query params (?bg=transparent|chroma|sunset&layout=vertical|landscape&clean=1)
+  const getInitialParams = () => {
+    if (typeof window === 'undefined') {
+      return { bg: 'sunset' as OverlayBgMode, layout: 'auto' as LayoutPreset, clean: false };
+    }
+    const params = new URLSearchParams(window.location.search);
+    const bgParam = params.get('bg');
+    const layoutParam = params.get('layout');
+    const cleanParam = params.get('clean');
+
+    const bg: OverlayBgMode =
+      bgParam === 'chroma' || bgParam === 'transparent' || bgParam === 'sunset'
+        ? bgParam
+        : 'sunset';
+    const layout: LayoutPreset =
+      layoutParam === 'vertical' || layoutParam === 'landscape' ? layoutParam : 'auto';
+    const clean = cleanParam === '1' || cleanParam === 'true';
+
+    return { bg, layout, clean };
+  };
+
+  const initial = getInitialParams();
 
   // Background selector for OBS / TikTok Live Studio
-  const [bgMode, setBgMode] = useState<OverlayBgMode>('sunset');
+  const [bgMode, setBgMode] = useState<OverlayBgMode>(initial.bg);
   // Responsive layout preview preset (16:9 Twitch/YT vs 9:16 TikTok Live vs Auto)
-  const [layoutPreset, setLayoutPreset] = useState<LayoutPreset>('auto');
+  const [layoutPreset, setLayoutPreset] = useState<LayoutPreset>(initial.layout);
   // Clean capture mode (hides all control panels, shortcut H)
-  const [cleanCapture, setCleanCapture] = useState<boolean>(false);
+  const [cleanCapture, setCleanCapture] = useState<boolean>(initial.clean);
   // Waiting screen banner toggle for Sunset Néon background
-  const [showWaitingBanner, setShowWaitingBanner] = useState<boolean>(true);
+  const [showWaitingBanner, setShowWaitingBanner] = useState<boolean>(false);
+
+  // Live Streamer Widgets toggles
+  const [showMissionWidget, setShowMissionWidget] = useState<boolean>(true);
+  const [showChallengeWidget, setShowChallengeWidget] = useState<boolean>(true);
+  const [challengeLabel, setChallengeLabel] = useState<string>(() => {
+    try {
+      return localStorage.getItem(CHALLENGE_LABEL_KEY) || 'Défis / Tentatives';
+    } catch {
+      return 'Défis / Tentatives';
+    }
+  });
+  const [challengeCount, setChallengeCount] = useState<number>(0);
+  const [copiedObsUrl, setCopiedObsUrl] = useState<boolean>(false);
 
   // Editable streamer pseudo & stream title
   const [streamerName, setStreamerName] = useState<string>(() => {
@@ -72,6 +115,13 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(true);
 
+  const activeMission =
+    missions.find((m) => m.status === 'in_progress' || m.priority) || missions[0];
+  const nextMissionStep = activeMission?.steps.find((s) => !s.completed);
+  const completedStepsCount = activeMission
+    ? activeMission.steps.filter((s) => s.completed).length
+    : 0;
+
   // Persist streamer inputs
   useEffect(() => {
     try {
@@ -88,6 +138,14 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
       // ignore storage errors
     }
   }, [streamTitle]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHALLENGE_LABEL_KEY, challengeLabel);
+    } catch {
+      // ignore storage errors
+    }
+  }, [challengeLabel]);
 
   useEffect(() => {
     try {
@@ -181,7 +239,17 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
     }
   };
 
-  // Root canvas background styles
+  const copyObsBrowserSourceUrl = () => {
+    if (typeof window === 'undefined') return;
+    const url = `${window.location.origin}/overlay?bg=${bgMode}&layout=${
+      layoutPreset === 'vertical' ? 'vertical' : 'landscape'
+    }&clean=1`;
+    navigator.clipboard?.writeText(url);
+    cyberAudio.playChirp();
+    setCopiedObsUrl(true);
+    setTimeout(() => setCopiedObsUrl(false), 2500);
+  };
+
   const rootCanvasStyle: React.CSSProperties =
     bgMode === 'chroma'
       ? { backgroundColor: '#00ff00' }
@@ -210,7 +278,6 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               `,
             }}
           />
-          {/* Subtle retro-horizon grid */}
           <div
             className="absolute inset-x-0 bottom-0 h-1/2 opacity-20"
             style={{
@@ -300,11 +367,20 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                 </button>
               </div>
 
-              {/* Clean Capture & Fullscreen Actions */}
-              <div className="flex items-center gap-2">
+              {/* OBS URL Copy, Fullscreen & Clean Capture */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={copyObsBrowserSourceUrl}
+                  className="px-3 py-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#00f0ff]/45 text-[#00f0ff] text-[11px] font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                  title="Copier l'URL directe à coller comme Source Navigateur dans OBS Studio"
+                >
+                  {copiedObsUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5" />}
+                  <span>{copiedObsUrl ? 'URL OBS COPIÉE' : 'COPIER URL OBS'}</span>
+                </button>
+
                 <button
                   onClick={toggleFullscreen}
-                  className="px-3 py-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#00f0ff]/40 text-[#00f0ff] text-[11px] font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                  className="px-2.5 py-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#00f0ff]/40 text-[#00f0ff] text-[11px] font-hud font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shrink-0"
                   title="Basculer en plein écran (F11)"
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
@@ -320,15 +396,15 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   title="Masquer tous les contrôles pour OBS (Touche H)"
                 >
                   <EyeOff className="w-3.5 h-3.5" />
-                  <span>Mode Capture Propre (H)</span>
+                  <span>Capture Propre (H)</span>
                 </button>
               </div>
             </div>
 
-            {/* Row 2: Editable Stream Controls, Timer Controls, Layout Preview & Signature Toggle */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-2 border-t border-[#ff2a85]/20 items-center">
+            {/* Row 2: Stream Inputs, Widgets & Controls */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-2 border-t border-[#ff2a85]/20 items-end">
               {/* Streamer Handle Input */}
-              <div className="md:col-span-3 flex flex-col gap-1">
+              <div className="md:col-span-2 flex flex-col gap-1">
                 <label
                   htmlFor="obs-streamer-name"
                   className="text-[10px] font-mono-code text-[#00f0ff] uppercase tracking-wider"
@@ -347,7 +423,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               </div>
 
               {/* Stream Title Input */}
-              <div className="md:col-span-4 flex flex-col gap-1">
+              <div className="md:col-span-3 flex flex-col gap-1">
                 <label
                   htmlFor="obs-stream-title"
                   className="text-[10px] font-mono-code text-[#ff7b00] uppercase tracking-wider"
@@ -365,39 +441,75 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                 />
               </div>
 
-              {/* Chronomètre Controls + Format Preview + Signature Checkbox */}
-              <div className="md:col-span-5 flex flex-wrap items-center justify-between md:justify-end gap-2.5 pt-1 md:pt-4">
+              {/* Live Widgets & Controls */}
+              <div className="md:col-span-7 flex flex-wrap items-center justify-between md:justify-end gap-2">
+                {/* Widget toggles */}
+                <button
+                  onClick={() => {
+                    cyberAudio.playClick();
+                    setShowMissionWidget((prev) => !prev);
+                  }}
+                  className={`px-2.5 py-1.5 text-[10px] font-mono-code uppercase border cursor-pointer transition-colors ${
+                    showMissionWidget
+                      ? 'bg-[#00f0ff]/15 border-[#00f0ff]/60 text-[#00f0ff]'
+                      : 'bg-[#0b021a] border-slate-700 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Widget Mission
+                </button>
+
+                <button
+                  onClick={() => {
+                    cyberAudio.playClick();
+                    setShowChallengeWidget((prev) => !prev);
+                  }}
+                  className={`px-2.5 py-1.5 text-[10px] font-mono-code uppercase border cursor-pointer transition-colors ${
+                    showChallengeWidget
+                      ? 'bg-[#ff2a85]/20 border-[#ff2a85]/60 text-[#ff2a85]'
+                      : 'bg-[#0b021a] border-slate-700 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Compteur Défi
+                </button>
+
+                {bgMode === 'sunset' && (
+                  <button
+                    onClick={() => {
+                      cyberAudio.playClick();
+                      setShowWaitingBanner((prev) => !prev);
+                    }}
+                    className={`px-2.5 py-1.5 text-[10px] font-mono-code uppercase border cursor-pointer transition-colors ${
+                      showWaitingBanner
+                        ? 'bg-[#ff7b00]/20 border-[#ff7b00]/60 text-[#ff7b00]'
+                        : 'bg-[#0b021a] border-slate-700 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Écran d&apos;attente
+                  </button>
+                )}
+
                 {/* Timer Start/Pause/Reset */}
-                <div className="flex items-center gap-1 bg-[#0b021a] border border-[#00f0ff]/35 p-1">
+                <div className="flex items-center gap-1 bg-[#0b021a] border border-[#00f0ff]/35 p-0.5">
                   <button
                     onClick={() => {
                       cyberAudio.playClick();
                       setIsTimerRunning((prev) => !prev);
                     }}
-                    className={`px-2 py-1 text-[11px] font-mono-code font-bold uppercase flex items-center gap-1 cursor-pointer transition-colors ${
+                    className={`px-2 py-1 text-[10px] font-mono-code font-bold uppercase flex items-center gap-1 cursor-pointer transition-colors ${
                       isTimerRunning
-                        ? 'bg-[#ff7b00]/20 text-[#ff7b00] hover:bg-[#ff7b00]/30'
-                        : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                        ? 'bg-[#ff7b00]/20 text-[#ff7b00]'
+                        : 'bg-emerald-500/20 text-emerald-300'
                     }`}
                   >
-                    {isTimerRunning ? (
-                      <>
-                        <Pause className="w-3 h-3" />
-                        <span>Pause</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-3 h-3" />
-                        <span>Start</span>
-                      </>
-                    )}
+                    {isTimerRunning ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                    <span>{isTimerRunning ? 'Pause' : 'Start'}</span>
                   </button>
                   <button
                     onClick={() => {
                       cyberAudio.playClick();
                       setElapsedSeconds(0);
                     }}
-                    className="px-2 py-1 text-[11px] font-mono-code text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-1 cursor-pointer transition-colors"
+                    className="px-2 py-1 text-[10px] font-mono-code text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer"
                     title="Réinitialiser le chronomètre"
                   >
                     <RotateCcw className="w-3 h-3" />
@@ -406,11 +518,11 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                 </div>
 
                 {/* Aspect Ratio Preview Switch (16:9 vs 9:16 TikTok Live) */}
-                <div className="flex items-center gap-1 bg-[#0b021a] border border-[#ff2a85]/35 p-1">
+                <div className="flex items-center gap-1 bg-[#0b021a] border border-[#ff2a85]/35 p-0.5">
                   <button
                     onClick={() => {
                       cyberAudio.playClick();
-                      setLayoutPreset(layoutPreset === 'vertical' ? 'auto' : 'landscape');
+                      setLayoutPreset('landscape');
                     }}
                     className={`px-2 py-1 text-[10px] font-mono-code uppercase flex items-center gap-1 cursor-pointer ${
                       layoutPreset !== 'vertical'
@@ -439,24 +551,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   </button>
                 </div>
 
-                {/* Sunset Waiting Screen Toggle */}
-                {bgMode === 'sunset' && (
-                  <button
-                    onClick={() => {
-                      cyberAudio.playClick();
-                      setShowWaitingBanner((prev) => !prev);
-                    }}
-                    className={`px-2.5 py-1.5 text-[10px] font-mono-code uppercase border cursor-pointer transition-colors ${
-                      showWaitingBanner
-                        ? 'bg-[#ff7b00]/20 border-[#ff7b00]/60 text-[#ff7b00]'
-                        : 'bg-[#0b021a] border-slate-700 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Écran d&apos;attente
-                  </button>
-                )}
-
-                {/* Hide Signature Checkbox (Version Pro) */}
+                {/* Hide Signature Checkbox */}
                 <button
                   type="button"
                   onClick={() => {
@@ -470,7 +565,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   ) : (
                     <Square className="w-3.5 h-3.5 text-slate-500" />
                   )}
-                  <span>Masquer signature (Pro)</span>
+                  <span>Masquer signature</span>
                 </button>
               </div>
             </div>
@@ -511,7 +606,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
             : undefined
         }
       >
-        {/* TOP AREA: Cadre Webcam 16:9 + Optional Sunset Waiting Screen Card */}
+        {/* TOP AREA: Cadre Webcam 16:9 + Right Live Streamer Widgets */}
         <div
           className={`flex flex-col ${
             isVerticalPreview ? 'gap-4 items-center' : 'lg:flex-row items-start justify-between gap-6'
@@ -523,7 +618,6 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               isVerticalPreview ? 'w-full' : 'w-full sm:w-[340px] lg:w-[400px]'
             } shrink-0`}
           >
-            {/* Outer Neon Frame */}
             <div
               className="relative aspect-video w-full p-[3px] shadow-[0_0_28px_rgba(255,42,133,0.45)]"
               style={{
@@ -532,7 +626,6 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))',
               }}
             >
-              {/* Inner Camera Viewport (Chroma Green / Transparent / Dark Glass) */}
               <div
                 className={`w-full h-full relative flex items-center justify-center overflow-hidden ${
                   bgMode === 'sunset' ? 'bg-[#0e0320]/80 backdrop-blur-sm' : ''
@@ -548,7 +641,6 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                     'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
                 }}
               >
-                {/* Reticle corners */}
                 <span className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-[#00f0ff]" />
                 <span className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-[#ff2a85]" />
                 <span className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-[#ff2a85]" />
@@ -562,7 +654,6 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   </span>
                 </div>
 
-                {/* Center guide text only in Sunset Néon waiting mode or when editing */}
                 {bgMode === 'sunset' && (
                   <div className="text-center px-4 pointer-events-none">
                     <Video className="w-7 h-7 text-[#00f0ff]/60 mx-auto mb-1" />
@@ -572,7 +663,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   </div>
                 )}
 
-                {/* Streamer Nameplate inside bottom-left of Webcam Frame */}
+                {/* Streamer Nameplate */}
                 <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between gap-2">
                   <div className="bg-[#120428]/95 border border-[#00f0ff]/60 px-3 py-1 shadow-[0_0_14px_rgba(0,240,255,0.28)] max-w-[85%]">
                     {cleanCapture ? (
@@ -594,36 +685,139 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
             </div>
           </div>
 
-          {/* SUNSET NÉON WAITING SCREEN BANNER ("Le live commence bientôt") */}
-          {bgMode === 'sunset' && showWaitingBanner && (
-            <div
-              className={`bg-[#160631]/90 backdrop-blur-md border border-[#ff2a85]/55 shadow-[0_0_35px_rgba(255,42,133,0.3)] p-5 sm:p-7 ${
-                isVerticalPreview ? 'w-full text-center' : 'max-w-lg w-full lg:mt-4'
-              }`}
-              style={{
-                clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)',
-              }}
-            >
-              <div className="flex items-center justify-center lg:justify-start gap-2 text-xs font-mono-code text-[#00f0ff] uppercase tracking-widest mb-2">
-                <Radio className="w-4 h-4 text-[#ff2a85] animate-pulse" />
-                <span>SIGNAL EN ATTENTE · SUNSET NÉON</span>
+          {/* RIGHT COLUMN: LIVE BROADCAST WIDGETS (Mission Active + Compteur Défi + Waiting Banner) */}
+          <div className={`${isVerticalPreview ? 'w-full' : 'w-full lg:max-w-sm'} space-y-3`}>
+            {/* Waiting Screen Card */}
+            {bgMode === 'sunset' && showWaitingBanner && (
+              <div
+                className="bg-[#160631]/92 backdrop-blur-md border border-[#ff2a85]/55 shadow-[0_0_30px_rgba(255,42,133,0.3)] p-5"
+                style={{
+                  clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)',
+                }}
+              >
+                <div className="flex items-center gap-2 text-[11px] font-mono-code text-[#00f0ff] uppercase tracking-widest mb-1.5">
+                  <Radio className="w-3.5 h-3.5 text-[#ff2a85] animate-pulse" />
+                  <span>SIGNAL EN ATTENTE · SUNSET NÉON</span>
+                </div>
+                <h2 className="text-2xl font-hud font-bold text-white uppercase tracking-wide leading-tight">
+                  Le live commence{' '}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff2a85] via-[#ff7b00] to-[#00f0ff]">
+                    bientôt
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-300 mt-1.5">
+                  HUD synchronisé sur <span className="text-[#00f0ff] font-semibold">{activeProfile.universe}</span>.
+                </p>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-hud font-bold text-white uppercase tracking-wide leading-tight">
-                Le live commence{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff2a85] via-[#ff7b00] to-[#00f0ff]">
-                  bientôt
-                </span>
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300 mt-2 font-sans">
-                Initialisation du HUD tactique sur <span className="text-[#00f0ff] font-semibold">{activeProfile.universe}</span>. Préparez votre session.
-              </p>
-            </div>
-          )}
+            )}
+
+            {/* Live Active Mission Widget */}
+            {showMissionWidget && activeMission && (
+              <div
+                className="bg-[#120428]/92 backdrop-blur-md border border-[#00f0ff]/55 p-3.5 shadow-[0_0_24px_rgba(0,240,255,0.2)] space-y-2"
+                style={{
+                  clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)',
+                }}
+              >
+                <div className="flex items-center justify-between text-[10px] font-mono-code uppercase">
+                  <span className="text-[#00f0ff] flex items-center gap-1.5 font-bold">
+                    <Target className="w-3.5 h-3.5 text-[#ff2a85]" />
+                    <span>Mission Active</span>
+                  </span>
+                  <span className="text-[#ff7b00] font-bold">
+                    {completedStepsCount}/{activeMission.steps.length} étapes
+                  </span>
+                </div>
+
+                <div className="font-hud font-bold text-sm sm:text-base text-white truncate">
+                  {activeMission.title}
+                </div>
+
+                <div className="text-xs text-slate-300 font-mono-code flex items-center justify-between gap-2">
+                  <span className="truncate">
+                    {nextMissionStep ? `→ ${nextMissionStep.text}` : 'Toutes les étapes validées'}
+                  </span>
+                  {!cleanCapture && nextMissionStep && (
+                    <button
+                      onClick={() => {
+                        cyberAudio.playFanfare();
+                        toggleMissionStep(activeMission.id, nextMissionStep.id);
+                      }}
+                      className="px-2 py-0.5 bg-[#00f0ff]/20 hover:bg-[#00f0ff]/35 border border-[#00f0ff]/60 text-[#00f0ff] text-[10px] uppercase cursor-pointer shrink-0 flex items-center gap-1"
+                      title="Valider l'étape suivante en direct"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Valider</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Live Challenge / Attempts Counter Widget */}
+            {showChallengeWidget && (
+              <div className="bg-[#120428]/92 backdrop-blur-md border border-[#ff2a85]/55 px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-[0_0_20px_rgba(255,42,133,0.2)]">
+                <div className="min-w-0 flex-1">
+                  {cleanCapture ? (
+                    <div className="text-[10px] font-mono-code uppercase tracking-wider text-[#ff7b00] truncate">
+                      {challengeLabel}
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={challengeLabel}
+                      onChange={(e) => setChallengeLabel(e.target.value)}
+                      maxLength={32}
+                      aria-label="Nom du compteur en direct"
+                      className="bg-transparent text-[10px] font-mono-code uppercase tracking-wider text-[#ff7b00] focus:outline-none w-full border-b border-transparent focus:border-[#00f0ff]"
+                    />
+                  )}
+                  <div className="font-mono-code font-bold text-xl text-white">
+                    {challengeCount}
+                  </div>
+                </div>
+
+                {!cleanCapture && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => {
+                        cyberAudio.playClick();
+                        setChallengeCount((c) => Math.max(0, c - 1));
+                      }}
+                      className="p-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#ff2a85]/40 text-slate-200 cursor-pointer"
+                      aria-label="Décrémenter le compteur"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        cyberAudio.playChirp();
+                        setChallengeCount((c) => c + 1);
+                      }}
+                      className="p-1.5 bg-[#ff2a85]/25 hover:bg-[#ff2a85]/40 border border-[#ff2a85]/70 text-white cursor-pointer"
+                      aria-label="Incrémenter le compteur"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        cyberAudio.playClick();
+                        setChallengeCount(0);
+                      }}
+                      className="p-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-slate-700 text-slate-300 cursor-pointer"
+                      aria-label="Réinitialiser le compteur"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* BOTTOM AREA: BARRE HUD TEMPS RÉEL + SIGNATURE MICRO */}
         <div className="mt-auto pt-6 space-y-2.5">
-          {/* BARRE HUD EN TEMPS RÉEL */}
           <div
             className="w-full bg-[#120428]/95 border border-[#ff2a85]/70 shadow-[0_0_30px_rgba(18,4,40,0.85)] p-3.5 sm:px-6 sm:py-4"
             style={{
@@ -632,16 +826,16 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
           >
             <div
               className={`grid gap-4 items-center ${
-                isVerticalPreview
-                  ? 'grid-cols-1'
-                  : 'grid-cols-1 md:grid-cols-12'
+                isVerticalPreview ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-12'
               }`}
             >
               {/* Left: Stream Title + Universe Tag */}
               <div className={isVerticalPreview ? 'space-y-1' : 'md:col-span-5 min-w-0 space-y-1'}>
                 <div className="flex items-center gap-2 text-[10px] font-mono-code uppercase tracking-widest text-[#00f0ff]">
                   <Sparkles className="w-3 h-3 text-[#ff7b00] shrink-0" />
-                  <span className="truncate">{activeProfile.name} · {activeProfile.universe}</span>
+                  <span className="truncate">
+                    {activeProfile.name} · {activeProfile.universe}
+                  </span>
                 </div>
                 {cleanCapture ? (
                   <div className="font-hud font-bold text-base sm:text-xl text-white tracking-wide truncate">
@@ -658,16 +852,14 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                 )}
               </div>
 
-              {/* Center: Global Completion Bar (Synced with Missions/Collectibles) */}
+              {/* Center: Global Completion Bar */}
               <div className={isVerticalPreview ? 'space-y-1.5' : 'md:col-span-4 space-y-1.5'}>
                 <div className="flex items-center justify-between text-xs font-mono-code">
                   <span className="text-slate-300 uppercase flex items-center gap-1.5">
                     <Trophy className="w-3.5 h-3.5 text-[#ff7b00]" />
-                    <span>Progression 100%</span>
+                    <span>Progression 100 %</span>
                   </span>
-                  <span className="text-[#00f0ff] font-bold text-sm tabular-nums">
-                    {overallProgress}%
-                  </span>
+                  <span className="text-[#00f0ff] font-bold text-sm">{overallProgress}%</span>
                 </div>
 
                 <div className="h-2.5 w-full bg-[#090216] border border-[#ff2a85]/40 overflow-hidden">
@@ -677,13 +869,14 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] font-mono-code text-slate-400 tabular-nums">
+                <div className="flex items-center justify-between text-[10px] font-mono-code text-slate-400">
                   <span className="flex items-center gap-1">
                     <Compass className="w-3 h-3 text-[#ff2a85]" />
                     Missions {stats.missionsDone}/{stats.missionsTotal}
                   </span>
                   <span>
-                    Collectibles {stats.collectiblesDone}/{stats.collectiblesTotal}
+                    Collectibles {stats.collectiblesDone}/{stats.collectiblesTotal} · Garage{' '}
+                    {stats.vehiclesUnlocked}/{stats.vehiclesTotal}
                   </span>
                 </div>
               </div>
@@ -700,7 +893,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   <div className="text-[10px] font-mono-code uppercase tracking-widest text-[#ff7b00]">
                     Chrono Session
                   </div>
-                  <div className="font-mono-code font-bold text-xl sm:text-2xl text-white tabular-nums tracking-wider">
+                  <div className="font-mono-code font-bold text-xl sm:text-2xl text-white tracking-wider">
                     {formatTimer(elapsedSeconds)}
                   </div>
                 </div>
@@ -733,11 +926,11 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
             </div>
           </div>
 
-          {/* Micro-mention discrète NeonOS • 10JITAL */}
+          {/* Micro-mention discrète JITALX • 10JITAL */}
           {!hideSignature && (
             <div className="flex justify-end">
               <span className="px-2.5 py-0.5 bg-[#120428]/90 border border-[#ff2a85]/35 text-[10px] font-mono-code tracking-widest text-slate-300">
-                NeonOS • 10JITAL
+                JITALX • 10JITAL
               </span>
             </div>
           )}

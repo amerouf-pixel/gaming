@@ -14,17 +14,25 @@ import {
   VolumeX,
   HardDrive,
   Video,
+  User,
 } from 'lucide-react';
 import { ModalSaveDesktop } from './ModalSaveDesktop';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   onOpenLanding?: () => void;
   onOpenStreamer?: () => void;
+  onOpenAccount?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenStreamer }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onOpenLanding,
+  onOpenStreamer,
+  onOpenAccount,
+}) => {
   const { activeProfile, activeTheme, profiles, setActiveProfile, sessionSeconds, overallProgress } =
     useGame();
+  const { user, account } = useAuth();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(() => cyberAudio.getMuted());
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -93,14 +101,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenStreamer })
                     : 'bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-300'
                 }`}
               >
-                NEONOS
+                JITALX
               </span>
               <span
                 className={`hidden sm:inline-block text-[10px] font-mono-code tracking-wider uppercase ${
                   isViceSunset ? 'text-[#00f0ff]/90' : 'text-cyan-400/90'
                 }`}
               >
-                Second-Screen Tactical HUD
+                THE STREAMER COMMAND HUB
               </span>
               {typeof window !== 'undefined' && localStorage.getItem('cyber_license') && (
                 <span className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono-code bg-emerald-950/80 text-emerald-300 border border-emerald-600/60 rounded shadow-[0_0_8px_rgba(16,185,129,0.3)]">
@@ -231,6 +239,27 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenStreamer })
             <span className="hidden lg:inline">SUR LE BUREAU</span>
           </button>
 
+          {/* Account / Profile Button */}
+          {onOpenAccount && (
+            <button
+              onClick={() => {
+                cyberAudio.playClick();
+                onOpenAccount();
+              }}
+              className={`px-2.5 py-1.5 text-[11px] font-hud font-bold uppercase tracking-wider border transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                isViceSunset
+                  ? 'bg-[#1b0838] hover:bg-[#2a0c54] text-slate-100 border-[#ff2a85]/45 hover:border-[#00f0ff]'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700'
+              }`}
+              title={user ? `Compte connecté : ${user.email}` : 'Connexion / Espace Membre'}
+            >
+              <User className={`w-3.5 h-3.5 ${isViceSunset ? 'text-[#00f0ff]' : 'text-cyan-400'}`} />
+              <span className="hidden xl:inline max-w-[90px] truncate">
+                {user ? account?.gamerTag || 'Compte' : 'Compte'}
+              </span>
+            </button>
+          )}
+
           {/* Landing Page Showcase Button */}
           {onOpenLanding && (
             <button
@@ -243,7 +272,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenStreamer })
                   ? 'bg-gradient-to-r from-[#ff2a85]/20 to-[#ff7b00]/20 hover:from-[#ff2a85]/30 hover:to-[#ff7b00]/30 text-[#ff7b00] border-[#ff2a85]/50 shadow-[0_0_12px_rgba(255,42,133,0.25)]'
                   : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
               }`}
-              title="Afficher la page de vente et tarifs"
+              title="Afficher la page commerciale et les formules"
             >
               <Zap className="w-3.5 h-3.5 fill-current" />
               <span className="hidden lg:inline">OFFRE 7 €</span>

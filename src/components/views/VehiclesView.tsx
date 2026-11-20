@@ -151,7 +151,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                   <span className="flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5 text-cyan-400" /> Vitesse de pointe
                   </span>
-                  <span className="text-cyan-400 font-semibold">{vehicle.speed} km/h</span>
+                  <span className="text-cyan-400 font-semibold tabular-nums">{vehicle.speed} / 100</span>
                 </div>
                 <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
                   <div

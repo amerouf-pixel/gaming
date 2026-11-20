@@ -66,7 +66,7 @@ export const CommercialProModal: React.FC<CommercialProModalProps> = ({
                 OFFRE DE LANCEMENT · ACCÈS À VIE
               </span>
               <h2 className="text-xl sm:text-2xl font-hud font-bold text-white tracking-wide">
-                NEONOS PRO // FULL ACCESS
+                JITALX PRO // FULL ACCESS
               </h2>
             </div>
           </div>
@@ -163,7 +163,7 @@ export const CommercialProModal: React.FC<CommercialProModalProps> = ({
                 className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-sm uppercase transition-all cursor-pointer shadow-[0_0_25px_rgba(255,42,133,0.5)] flex items-center justify-center gap-2"
               >
                 <Zap className="w-4 h-4 fill-white" />
-                <span>DÉBLOQUER NEONOS FULL ACCESS</span>
+                <span>DÉBLOQUER JITALX FULL ACCESS</span>
               </button>
             </div>
 

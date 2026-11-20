@@ -1,0 +1,270 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1: Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    function isOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'harzyyouness75@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Validation Blueprint: UserAccount
+    function isValidUserAccount(data, userId) {
+      return data.keys().hasAll([
+        'uid', 'displayName', 'email', 'photoURL', 'gamerTag',
+        'streamChannel', 'streamPlatform', 'preferredTheme',
+        'subscriptionTier', 'subscriptionStatus', 'stripeCustomerId',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'displayName', 'email', 'photoURL', 'gamerTag',
+        'streamChannel', 'streamPlatform', 'preferredTheme',
+        'subscriptionTier', 'subscriptionStatus', 'stripeCustomerId',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.uid is string && data.uid == userId && isValidId(data.uid) &&
+      data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+      data.photoURL is string && data.photoURL.size() <= 500 &&
+      data.gamerTag is string && data.gamerTag.size() >= 1 && data.gamerTag.size() <= 40 &&
+      data.streamChannel is string && data.streamChannel.size() <= 120 &&
+      data.streamPlatform is string && data.streamPlatform in ['twitch', 'youtube', 'tiktok', 'kick', 'multi'] &&
+      data.preferredTheme is string && data.preferredTheme in ['sunset-neon', 'cyber-grid', 'open-world'] &&
+      data.subscriptionTier is string && data.subscriptionTier in ['free', 'pro_monthly', 'lifetime', 'creator'] &&
+      data.subscriptionStatus is string && data.subscriptionStatus in ['active', 'inactive', 'pending_stripe'] &&
+      data.stripeCustomerId is string && data.stripeCustomerId.size() <= 128 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: CustomGameProfile
+    function isValidCustomProfile(data, userId) {
+      return data.keys().hasAll([
+        'ownerId', 'name', 'universe', 'playerTag', 'avatarIcon', 'theme', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'name', 'universe', 'playerTag', 'avatarIcon', 'theme', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId) &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+      data.universe is string && data.universe.size() >= 1 && data.universe.size() <= 60 &&
+      data.playerTag is string && data.playerTag.size() >= 1 && data.playerTag.size() <= 40 &&
+      data.avatarIcon is string && data.avatarIcon in ['Sun', 'Zap', 'Flame', 'Gamepad2'] &&
+      data.theme is string && data.theme in ['sunset-neon', 'cyber-grid', 'open-world'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: CloudSnapshot
+    function isValidCloudSnapshot(data, userId) {
+      return data.keys().hasAll([
+        'ownerId', 'profileId', 'profileName', 'overallProgress',
+        'missionsDone', 'missionsTotal', 'collectiblesDone', 'collectiblesTotal',
+        'missions', 'collectibles', 'vehicles', 'objectives', 'notes',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'profileId', 'profileName', 'overallProgress',
+        'missionsDone', 'missionsTotal', 'collectiblesDone', 'collectiblesTotal',
+        'missions', 'collectibles', 'vehicles', 'objectives', 'notes',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId) &&
+      data.profileId is string && data.profileId.size() >= 1 && data.profileId.size() <= 64 &&
+      data.profileName is string && data.profileName.size() >= 1 && data.profileName.size() <= 60 &&
+      data.overallProgress is int && data.overallProgress >= 0 && data.overallProgress <= 100 &&
+      data.missionsDone is int && data.missionsDone >= 0 && data.missionsDone <= 500 &&
+      data.missionsTotal is int && data.missionsTotal >= 0 && data.missionsTotal <= 500 &&
+      data.collectiblesDone is int && data.collectiblesDone >= 0 && data.collectiblesDone <= 500 &&
+      data.collectiblesTotal is int && data.collectiblesTotal >= 0 && data.collectiblesTotal <= 500 &&
+      data.missions is list && data.missions.size() <= 100 &&
+      (data.missions.size() == 0 || data.missions[0] is map) &&
+      data.collectibles is list && data.collectibles.size() <= 150 &&
+      (data.collectibles.size() == 0 || data.collectibles[0] is map) &&
+      data.vehicles is list && data.vehicles.size() <= 100 &&
+      (data.vehicles.size() == 0 || data.vehicles[0] is map) &&
+      data.objectives is list && data.objectives.size() <= 100 &&
+      (data.objectives.size() == 0 || data.objectives[0] is map) &&
+      data.notes is list && data.notes.size() <= 100 &&
+      (data.notes.size() == 0 || data.notes[0] is map) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: CreatorInquiry
+    function isValidCreatorInquiry(data) {
+      return data.keys().hasAll([
+        'ownerId', 'name', 'email', 'channelUrl', 'platform',
+        'inquiryType', 'message', 'status', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'name', 'email', 'channelUrl', 'platform',
+        'inquiryType', 'message', 'status', 'createdAt'
+      ]) &&
+      data.ownerId is string && data.ownerId == request.auth.uid && isValidId(data.ownerId) &&
+      data.name is string && data.name.size() >= 2 && data.name.size() <= 80 &&
+      data.email is string && data.email.size() >= 5 && data.email.size() <= 160 &&
+      data.channelUrl is string && data.channelUrl.size() <= 240 &&
+      data.platform is string && data.platform in ['twitch', 'youtube', 'tiktok', 'kick', 'agency', 'other'] &&
+      data.inquiryType is string && data.inquiryType in ['creator_partnership', 'streamer_access', 'press_media', 'commercial'] &&
+      data.message is string && data.message.size() >= 10 && data.message.size() <= 1500 &&
+      data.status is string && data.status in ['received', 'reviewed', 'archived'] &&
+      data.createdAt is timestamp;
+    }
+
+    // Collection: /users/{userId}
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if false;
+
+      allow create: if isValidId(userId) &&
+        isOwner(userId) &&
+        isValidUserAccount(incoming(), userId) &&
+        incoming().subscriptionTier == 'free' &&
+        incoming().subscriptionStatus == 'active' &&
+        incoming().stripeCustomerId == '' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(userId) &&
+        isValidUserAccount(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            isOwner(userId) &&
+            incoming().subscriptionTier == existing().subscriptionTier &&
+            incoming().subscriptionStatus == existing().subscriptionStatus &&
+            incoming().stripeCustomerId == existing().stripeCustomerId &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'photoURL', 'gamerTag', 'streamChannel',
+              'streamPlatform', 'preferredTheme', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isValidId(userId) && (isOwner(userId) || isAdmin());
+
+      // Subcollection: /users/{userId}/customProfiles/{profileId}
+      match /customProfiles/{profileId} {
+        allow get: if isValidId(userId) && isValidId(profileId) && (isOwner(userId) || isAdmin());
+        allow list: if isValidId(userId) && (
+          isAdmin() ||
+          (isOwner(userId) && existing().ownerId == request.auth.uid)
+        );
+
+        allow create: if isValidId(userId) && isValidId(profileId) &&
+          isOwner(userId) &&
+          isValidCustomProfile(incoming(), userId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          exists(/databases/$(database)/documents/users/$(userId));
+
+        allow update: if isValidId(userId) && isValidId(profileId) &&
+          isValidCustomProfile(incoming(), userId) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          exists(/databases/$(database)/documents/users/$(userId)) && (
+            isAdmin() ||
+            (
+              isOwner(userId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'name', 'universe', 'playerTag', 'avatarIcon', 'theme', 'updatedAt'
+              ])
+            )
+          );
+
+        allow delete: if isValidId(userId) && isValidId(profileId) &&
+          (isOwner(userId) || isAdmin()) &&
+          exists(/databases/$(database)/documents/users/$(userId));
+      }
+
+      // Subcollection: /users/{userId}/cloudSnapshots/{snapshotId}
+      match /cloudSnapshots/{snapshotId} {
+        allow get: if isValidId(userId) && isValidId(snapshotId) && (isOwner(userId) || isAdmin());
+        allow list: if isValidId(userId) && (
+          isAdmin() ||
+          (isOwner(userId) && existing().ownerId == request.auth.uid)
+        );
+
+        allow create: if isValidId(userId) && isValidId(snapshotId) &&
+          isOwner(userId) &&
+          isValidCloudSnapshot(incoming(), userId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          exists(/databases/$(database)/documents/users/$(userId));
+
+        allow update: if isValidId(userId) && isValidId(snapshotId) &&
+          isValidCloudSnapshot(incoming(), userId) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          exists(/databases/$(database)/documents/users/$(userId)) && (
+            isAdmin() ||
+            (
+              isOwner(userId) &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'profileId', 'profileName', 'overallProgress',
+                'missionsDone', 'missionsTotal', 'collectiblesDone', 'collectiblesTotal',
+                'missions', 'collectibles', 'vehicles', 'objectives', 'notes', 'updatedAt'
+              ])
+            )
+          );
+
+        allow delete: if isValidId(userId) && isValidId(snapshotId) &&
+          (isOwner(userId) || isAdmin()) &&
+          exists(/databases/$(database)/documents/users/$(userId));
+      }
+    }
+
+    // Collection: /creatorInquiries/{inquiryId}
+    match /creatorInquiries/{inquiryId} {
+      allow get: if isValidId(inquiryId) && (
+        isAdmin() ||
+        (isVerified() && existing().ownerId == request.auth.uid)
+      );
+      allow list: if isAdmin() || (isVerified() && existing().ownerId == request.auth.uid);
+
+      allow create: if isValidId(inquiryId) &&
+        isVerified() &&
+        isValidCreatorInquiry(incoming()) &&
+        incoming().status == 'received' &&
+        incoming().createdAt == request.time;
+
+      allow update: if isValidId(inquiryId) &&
+        isAdmin() &&
+        isValidCreatorInquiry(incoming()) &&
+        existing().status != 'archived' &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+
+      allow delete: if isValidId(inquiryId) && isAdmin();
+    }
+
+    // Admin registry (read-only via rules checks, never client writable)
+    match /admins/{adminUid} {
+      allow read, write: if false;
+    }
+  }
+}

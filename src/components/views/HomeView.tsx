@@ -99,7 +99,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono-code">
               <span className={`font-bold uppercase tracking-wider ${isSunsetNeon ? 'text-[#00f0ff]' : 'text-cyan-400'}`}>
-                NEONOS · SECOND-SCREEN TACTICAL HUD
+                JITALX · THE STREAMER COMMAND HUB
               </span>
               <span className="text-slate-600">/</span>
               <span className="text-slate-300">
@@ -135,7 +135,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
               }`}
             >
               <Zap className="w-4 h-4 fill-current" />
-              <span>NEONOS PRO · 7 €</span>
+              <span>JITALX PRO · 7 €</span>
             </button>
 
             <button
@@ -620,10 +620,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
                   <span className="px-2 py-0.5 text-[10px] font-mono-code font-bold uppercase bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] text-white">
                     OFFRE DE LANCEMENT · 7 € À VIE
                   </span>
-                  <span className="text-xs font-mono-code text-[#00f0ff]">NEONOS PRO</span>
+                  <span className="text-xs font-mono-code text-[#00f0ff]">JITALX PRO</span>
                 </div>
                 <h3 className="text-2xl font-bold font-hud text-white mt-1">
-                  NEONOS FULL ACCESS · SECOND-SCREEN HUD
+                  JITALX FULL ACCESS · THE STREAMER COMMAND HUB
                 </h3>
               </div>
               <button
@@ -666,25 +666,25 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
                 </p>
               </div>
 
-              <div className="p-3.5 bg-[#050811] border border-slate-800">
-                <div className="flex items-center gap-2 text-purple-400 font-hud font-bold text-sm mb-1">
+              <div className="p-3.5 bg-[#120428] border border-[#ff2a85]/25">
+                <div className="flex items-center gap-2 text-[#00f0ff] font-hud font-bold text-sm mb-1">
                   <Trophy className="w-4 h-4" />
-                  <span>Toasts de Trophées HUD</span>
+                  <span>Overlay OBS &amp; Trophées HUD</span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Système de notifications Platine, Or, Argent et Bronze identique aux meilleures interfaces de consoles.
+                  Overlay Chroma Key / Transparent 16:9 &amp; 9:16 pour Twitch, YouTube et TikTok Live + alertes de trophées.
                 </p>
               </div>
             </div>
 
             {/* Bottom Guarantee */}
-            <div className="p-4 bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="p-4 bg-[#ff2a85]/10 border border-[#ff2a85]/35 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <div className="text-xs font-hud font-bold text-amber-300 uppercase">
-                  Prêt pour la commercialisation
+                <div className="text-xs font-hud font-bold text-[#ff7b00] uppercase">
+                  Offre de lancement · 7 € accès à vie
                 </div>
-                <div className="text-xs text-slate-300">
-                  Code React 19 + TypeScript + Tailwind 4 propre, maintenable et immédiatement monétisable.
+                <div className="text-xs text-slate-200">
+                  Synchronisation Cloud Firebase, profils personnalisés, overlay OBS complet et mises à jour incluses.
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -695,9 +695,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
                       setShowCommercialModal(false);
                       onOpenLanding();
                     }}
-                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-hud font-bold text-xs uppercase cursor-pointer transition-all shadow-[0_0_12px_rgba(6,182,212,0.4)]"
+                    className="px-4 py-2 bg-[#00f0ff] hover:bg-[#5ef6ff] text-[#120428] font-hud font-bold text-xs uppercase cursor-pointer transition-all shadow-[0_0_12px_rgba(0,240,255,0.35)]"
                   >
-                    OUVRIR LA LANDING PAGE
+                    VOIR LES FORMULES
                   </button>
                 )}
                 <button
@@ -705,9 +705,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
                     cyberAudio.playFanfare();
                     setShowCommercialModal(false);
                   }}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-hud font-bold text-xs uppercase cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase cursor-pointer"
                 >
-                  COMPRIS !
+                  CONTINUER
                 </button>
               </div>
             </div>

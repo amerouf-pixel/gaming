@@ -3,8 +3,9 @@
 :root,
 [data-theme="sunset-neon"] {
   --vice-bg: #120428;
-  --vice-surface: #1b0838;
+  --vice-surface: #180633;
   --vice-surface-deep: #0e0320;
+  --vice-border: rgba(255, 42, 133, 0.28);
   --vice-pink: #ff2a85;
   --vice-cyan: #00f0ff;
   --vice-orange: #ff7b00;
@@ -15,15 +16,21 @@
   --vice-bg: #090d16;
   --vice-surface: #0c1322;
   --vice-surface-deep: #050912;
+  --vice-border: rgba(6, 182, 212, 0.28);
   --vice-pink: #06b6d4;
   --vice-cyan: #22d3ee;
   --vice-orange: #f59e0b;
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     background-color: var(--vice-bg);
+    color: #f1f5f9;
   }
 
   h1, h2, h3, .font-hud {
@@ -33,7 +40,27 @@
 
   .font-mono-code {
     font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
   }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--vice-cyan);
+    outline-offset: 2px;
+  }
+}
+
+/* Theme-aware HUD surface helper */
+.neon-panel {
+  background-color: var(--vice-surface);
+  border-color: var(--vice-border);
+}
+
+.neon-panel-deep {
+  background-color: var(--vice-surface-deep);
 }
 
 /* Custom scrollbars */
@@ -52,7 +79,7 @@
   background: #ff2a85;
 }
 
-/* Glowing animations & HUD details */
+/* Glowing accents & HUD utilities */
 .glow-cyan {
   box-shadow: 0 0 16px -3px rgba(0, 240, 255, 0.4);
 }
@@ -77,4 +104,13 @@
 
 .animate-marquee {
   animation: marquee 25s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-pulse,
+  .animate-spin,
+  .animate-ping {
+    animation: none !important;
+  }
 }

@@ -1,0 +1,292 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Authenticated NeonOS user account, streamer settings, and subscription entitlements.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 160
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "gamerTag": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "streamChannel": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "streamPlatform": {
+          "type": "string",
+          "enum": ["twitch", "youtube", "tiktok", "kick", "multi"]
+        },
+        "preferredTheme": {
+          "type": "string",
+          "enum": ["sunset-neon", "cyber-grid", "open-world"]
+        },
+        "subscriptionTier": {
+          "type": "string",
+          "enum": ["free", "pro_monthly", "lifetime", "creator"]
+        },
+        "subscriptionStatus": {
+          "type": "string",
+          "enum": ["active", "inactive", "pending_stripe"]
+        },
+        "stripeCustomerId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "photoURL",
+        "gamerTag",
+        "streamChannel",
+        "streamPlatform",
+        "preferredTheme",
+        "subscriptionTier",
+        "subscriptionStatus",
+        "stripeCustomerId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CustomGameProfile": {
+      "title": "CustomGameProfile",
+      "description": "User-managed custom game universe profile synced to the user's account.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "universe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "playerTag": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "avatarIcon": {
+          "type": "string",
+          "enum": ["Sun", "Zap", "Flame", "Gamepad2"]
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["sunset-neon", "cyber-grid", "open-world"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "name",
+        "universe",
+        "playerTag",
+        "avatarIcon",
+        "theme",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CloudSnapshot": {
+      "title": "CloudSnapshot",
+      "description": "Cloud-synced NeonOS progression snapshot stored natively as structured lists and counters.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "profileId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "profileName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "overallProgress": {
+          "type": "number"
+        },
+        "missionsDone": {
+          "type": "number"
+        },
+        "missionsTotal": {
+          "type": "number"
+        },
+        "collectiblesDone": {
+          "type": "number"
+        },
+        "collectiblesTotal": {
+          "type": "number"
+        },
+        "missions": {
+          "type": "array"
+        },
+        "collectibles": {
+          "type": "array"
+        },
+        "vehicles": {
+          "type": "array"
+        },
+        "objectives": {
+          "type": "array"
+        },
+        "notes": {
+          "type": "array"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "profileId",
+        "profileName",
+        "overallProgress",
+        "missionsDone",
+        "missionsTotal",
+        "collectiblesDone",
+        "collectiblesTotal",
+        "missions",
+        "collectibles",
+        "vehicles",
+        "objectives",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CreatorInquiry": {
+      "title": "CreatorInquiry",
+      "description": "Streamer partnership or commercial contact request submitted from the GTA 6 Streamers page.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 160
+        },
+        "channelUrl": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "platform": {
+          "type": "string",
+          "enum": ["twitch", "youtube", "tiktok", "kick", "agency", "other"]
+        },
+        "inquiryType": {
+          "type": "string",
+          "enum": ["creator_partnership", "streamer_access", "press_media", "commercial"]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 1500
+        },
+        "status": {
+          "type": "string",
+          "enum": ["received", "reviewed", "archived"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "name",
+        "email",
+        "channelUrl",
+        "platform",
+        "inquiryType",
+        "message",
+        "status",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Private user account, profile metadata, and subscription entitlement document."
+    },
+    "/users/{userId}/customProfiles/{profileId}": {
+      "schema": { "$ref": "#/entities/CustomGameProfile" },
+      "description": "Custom game universe profiles owned by the user."
+    },
+    "/users/{userId}/cloudSnapshots/{snapshotId}": {
+      "schema": { "$ref": "#/entities/CloudSnapshot" },
+      "description": "Cloud progression backups owned by the user."
+    },
+    "/creatorInquiries/{inquiryId}": {
+      "schema": { "$ref": "#/entities/CreatorInquiry" },
+      "description": "Creator partnership and commercial inquiries linked to verified user accounts."
+    }
+  }
+}

@@ -25,6 +25,9 @@ interface GameContextType {
   activeProfile: GameProfile;
   activeTheme: UniverseTheme;
   setActiveProfile: (profile: GameProfile) => void;
+  setSyncedCustomProfiles: (customProfiles: GameProfile[]) => void;
+  addLocalCustomProfile: (profile: Omit<GameProfile, 'id'>) => GameProfile;
+  removeLocalCustomProfile: (id: string) => void;
   // Missions
   missions: Mission[];
   toggleMissionStatus: (id: string) => void;
@@ -65,16 +68,45 @@ interface GameContextType {
   resetAllData: () => void;
   exportBackup: () => void;
   importBackup: (jsonData: string) => boolean;
+  restoreSnapshotData: (snapshot: {
+    missions: Mission[];
+    collectibles: Collectible[];
+    vehicles: Vehicle[];
+    objectives: Objective[];
+    notes: TacticalNote[];
+  }) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'neonos_data_v3';
 const ACTIVE_PROFILE_KEY = 'neonos_active_profile_v2';
+const CUSTOM_PROFILES_KEY = 'neonos_custom_profiles_v1';
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
-  const [profiles] = useState<GameProfile[]>(INITIAL_PROFILES);
+  const [localCustomProfiles, setLocalCustomProfiles] = useState<GameProfile[]>(() => {
+    try {
+      const saved = localStorage.getItem(CUSTOM_PROFILES_KEY);
+      return saved ? (JSON.parse(saved) as GameProfile[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [syncedCustomProfiles, setSyncedCustomProfiles] = useState<GameProfile[]>([]);
+
+  const profiles = useMemo<GameProfile[]>(() => {
+    const merged = [...INITIAL_PROFILES];
+    const seen = new Set(merged.map((p) => p.id));
+    for (const p of [...syncedCustomProfiles, ...localCustomProfiles]) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        merged.push({ ...p, isCustom: true });
+      }
+    }
+    return merged;
+  }, [syncedCustomProfiles, localCustomProfiles]);
+
   const [activeProfile, setActiveProfile] = useState<GameProfile>(() => {
     try {
       const savedId = localStorage.getItem(ACTIVE_PROFILE_KEY);
@@ -87,6 +119,31 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return INITIAL_PROFILES[0]; // Default: Sunset Néon
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CUSTOM_PROFILES_KEY, JSON.stringify(localCustomProfiles));
+    } catch {
+      // ignore storage error
+    }
+  }, [localCustomProfiles]);
+
+  const addLocalCustomProfile = (profile: Omit<GameProfile, 'id'>): GameProfile => {
+    const created: GameProfile = {
+      ...profile,
+      id: `local_prof_${Date.now()}`,
+      isCustom: true,
+    };
+    setLocalCustomProfiles((prev) => [created, ...prev]);
+    return created;
+  };
+
+  const removeLocalCustomProfile = (id: string) => {
+    setLocalCustomProfiles((prev) => prev.filter((p) => p.id !== id));
+    if (activeProfile.id === id) {
+      setActiveProfile(INITIAL_PROFILES[0]);
+    }
+  };
 
   const activeTheme: UniverseTheme = activeProfile.theme || 'sunset-neon';
 
@@ -360,7 +417,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `neonos-backup-${Date.now()}.json`;
+    link.download = `jitalx-backup-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -382,6 +439,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const restoreSnapshotData = (snapshot: {
+    missions: Mission[];
+    collectibles: Collectible[];
+    vehicles: Vehicle[];
+    objectives: Objective[];
+    notes: TacticalNote[];
+  }) => {
+    if (Array.isArray(snapshot.missions)) setMissions(snapshot.missions);
+    if (Array.isArray(snapshot.collectibles)) setCollectibles(snapshot.collectibles);
+    if (Array.isArray(snapshot.vehicles)) setVehicles(snapshot.vehicles);
+    if (Array.isArray(snapshot.objectives)) setObjectives(snapshot.objectives);
+    if (Array.isArray(snapshot.notes)) setNotes(snapshot.notes);
+  };
+
   return (
     <GameContext.Provider
       value={{
@@ -391,6 +462,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeProfile,
         activeTheme,
         setActiveProfile,
+        setSyncedCustomProfiles,
+        addLocalCustomProfile,
+        removeLocalCustomProfile,
         missions,
         toggleMissionStatus,
         toggleMissionStep,
@@ -415,6 +489,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         resetAllData,
         exportBackup,
         importBackup,
+        restoreSnapshotData,
       }}
     >
       {children}

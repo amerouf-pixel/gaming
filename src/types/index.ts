@@ -1,5 +1,7 @@
 export type TabType = 'home' | 'missions' | 'collectibles' | 'vehicles' | 'objectives' | 'notes' | 'stats';
 
+export type AppRoute = 'landing' | 'app' | 'demo' | 'pricing' | 'streamers' | 'account' | 'overlay';
+
 export type MissionType = 'main' | 'side' | 'bounty' | 'activity';
 export type MissionStatus = 'available' | 'in_progress' | 'completed';
 
@@ -82,4 +84,53 @@ export interface GameProfile {
   playerTag: string;
   avatarIcon: string;
   theme?: UniverseTheme;
+  isCustom?: boolean;
+}
+
+export type SubscriptionTier = 'free' | 'pro_monthly' | 'lifetime' | 'creator';
+export type SubscriptionStatus = 'active' | 'inactive' | 'pending_stripe';
+export type StreamPlatform = 'twitch' | 'youtube' | 'tiktok' | 'kick' | 'multi';
+
+export interface UserAccountProfile {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL: string;
+  gamerTag: string;
+  streamChannel: string;
+  streamPlatform: StreamPlatform;
+  preferredTheme: UniverseTheme;
+  subscriptionTier: SubscriptionTier;
+  subscriptionStatus: SubscriptionStatus;
+  stripeCustomerId: string;
+}
+
+export interface CloudSnapshotRecord {
+  id: string;
+  ownerId: string;
+  profileId: string;
+  profileName: string;
+  overallProgress: number;
+  missionsDone: number;
+  missionsTotal: number;
+  collectiblesDone: number;
+  collectiblesTotal: number;
+  missions: Mission[];
+  collectibles: Collectible[];
+  vehicles: Vehicle[];
+  objectives: Objective[];
+  notes: TacticalNote[];
+  updatedAtMs?: number;
+}
+
+export type InquiryPlatform = 'twitch' | 'youtube' | 'tiktok' | 'kick' | 'agency' | 'other';
+export type InquiryType = 'creator_partnership' | 'streamer_access' | 'press_media' | 'commercial';
+
+export interface CreatorInquiryInput {
+  name: string;
+  email: string;
+  channelUrl: string;
+  platform: InquiryPlatform;
+  inquiryType: InquiryType;
+  message: string;
 }
