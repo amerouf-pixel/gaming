@@ -35,7 +35,7 @@ export const HoloRadar: React.FC = () => {
     vehicles,
     activeTheme,
     setCurrentTab,
-    toggleMissionStep,
+    openProgressionTab,
     toggleCollectible,
   } = useGame();
   const isViceSunset = activeTheme === 'sunset-neon';
@@ -159,14 +159,11 @@ export const HoloRadar: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="font-hud font-bold text-base sm:text-lg text-white tracking-wider">
-                RADAR HOLOGRAPHIQUE TACTIQUE 360°
+                RADAR TACTIQUE 360°
               </h2>
-              <span className="hidden sm:inline-block px-1.5 py-0.2 text-[9px] font-mono-code bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 uppercase font-semibold">
-                LIDAR_ACTIF
-              </span>
             </div>
             <p className="text-[11px] font-mono-code text-slate-400">
-              Balayage télémétrique du secteur · Portée {radarZoom === '2x' ? '500m' : '1500m'}
+              Vue synthétique de vos missions, collectibles et véhicules · Zoom {radarZoom}
             </p>
           </div>
         </div>
@@ -391,11 +388,11 @@ export const HoloRadar: React.FC = () => {
                   <button
                     onClick={() => {
                       cyberAudio.playClick();
-                      setCurrentTab('missions');
+                      openProgressionTab('missions');
                     }}
                     className="flex-1 px-3 py-2 text-xs font-hud font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all"
                   >
-                    <span>ENGAGER LA MISSION</span>
+                    <span>OUVRIR LES MISSIONS</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -418,7 +415,7 @@ export const HoloRadar: React.FC = () => {
                   <button
                     onClick={() => {
                       cyberAudio.playClick();
-                      setCurrentTab('vehicles');
+                      setCurrentTab('garage');
                     }}
                     className="flex-1 px-3 py-2 text-xs font-hud font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all"
                   >
@@ -444,11 +441,8 @@ export const HoloRadar: React.FC = () => {
 
           {/* Bottom Live Feed Telemetry */}
           <div className="border-t border-slate-800/80 pt-3 mt-4 flex items-center justify-between text-[10px] font-mono-code text-slate-500">
-            <span>SIGNAUX DÉTECTÉS : {filteredTargets.length}</span>
-            <span className="text-emerald-400 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              FLUX_TEMPS_RÉEL
-            </span>
+            <span>REPÈRES AFFICHÉS : {filteredTargets.length}</span>
+            <span className="text-[#00f0ff]">RADAR ACTIF</span>
           </div>
         </div>
       </div>

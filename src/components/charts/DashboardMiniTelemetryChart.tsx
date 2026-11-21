@@ -113,12 +113,14 @@ export const DashboardMiniTelemetryChart: React.FC<DashboardMiniTelemetryChartPr
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-hud font-bold text-sm sm:text-base text-white uppercase tracking-wider">
-                COURBE DE PROGRESSION RÉELLE VS TEMPS
+                PROJECTION DE PROGRESSION (ESTIMATION)
               </h3>
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="text-[10px] font-mono-code px-1.5 py-0.5 bg-amber-500/15 text-amber-300 border border-amber-500/30 uppercase">
+                SIMULATION
+              </span>
             </div>
             <p className="text-[11px] text-slate-400">
-              Corrélation temps de jeu ({totalHours}h) &amp; vélocité de complétion
+              Courbe indicative calculée depuis votre progression actuelle ({currentPercent}%)
             </p>
           </div>
         </div>

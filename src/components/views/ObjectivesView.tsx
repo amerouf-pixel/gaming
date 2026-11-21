@@ -7,15 +7,50 @@ import {
   Award,
   CheckCircle2,
   Circle,
-  Flame,
   Medal,
-  Radio,
+  Plus,
+  Minus,
+  Trash2,
+  X,
 } from 'lucide-react';
 
 export const ObjectivesView: React.FC = () => {
-  const { objectives, toggleObjective, stats } = useGame();
+  const {
+    objectives,
+    toggleObjective,
+    stepObjectiveProgress,
+    addObjective,
+    deleteObjective,
+    stats,
+  } = useGame();
   const { triggerAchievement } = useToast();
   const [selectedTier, setSelectedTier] = useState<string>('all');
+  const [showNewForm, setShowNewForm] = useState(false);
+
+  // Add objective form state
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newTier, setNewTier] = useState<ObjectiveTier>('gold');
+  const [newCategory, setNewCategory] = useState('Progression');
+  const [newMaxProgress, setNewMaxProgress] = useState('1');
+
+  const handleCreateObjective = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim()) return;
+    addObjective({
+      title: newTitle.trim(),
+      description: newDesc.trim() || 'Objectif personnalisé',
+      tier: newTier,
+      category: newCategory.trim() || 'Progression',
+      progress: 0,
+      maxProgress: Math.max(1, Number(newMaxProgress) || 1),
+      completed: false,
+    });
+    setNewTitle('');
+    setNewDesc('');
+    setNewMaxProgress('1');
+    setShowNewForm(false);
+  };
 
   const filteredObjectives = objectives.filter((o) => {
     if (selectedTier !== 'all' && o.tier !== selectedTier) return false;
@@ -25,44 +60,30 @@ export const ObjectivesView: React.FC = () => {
   const getTierIcon = (tier: ObjectiveTier) => {
     switch (tier) {
       case 'platinum':
-        return <Award className="w-5 h-5 text-cyan-300" />;
+        return <Award className="w-5 h-5 text-[#00f0ff]" />;
       case 'gold':
         return <Trophy className="w-5 h-5 text-amber-400" />;
       case 'silver':
-        return <Medal className="w-5 h-5 text-slate-300" />;
+        return <Medal className="w-5 h-5 text-slate-200" />;
       case 'bronze':
-        return <Medal className="w-5 h-5 text-orange-500" />;
+        return <Medal className="w-5 h-5 text-[#ff7b00]" />;
     }
   };
 
-  const getTierBadge = (tier: ObjectiveTier) => {
+  const getTierLabel = (tier: ObjectiveTier) => {
     switch (tier) {
       case 'platinum':
-        return (
-          <span className="text-[10px] font-mono-code px-2 py-0.5 bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-bold uppercase tracking-wider">
-            TROPHÉE PLATINE
-          </span>
-        );
+        return 'Platine';
       case 'gold':
-        return (
-          <span className="text-[10px] font-mono-code px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold uppercase tracking-wider">
-            TROPHÉE OR
-          </span>
-        );
+        return 'Or';
       case 'silver':
-        return (
-          <span className="text-[10px] font-mono-code px-2 py-0.5 bg-slate-300/10 text-slate-200 border border-slate-400/30 font-bold uppercase tracking-wider">
-            TROPHÉE ARGENT
-          </span>
-        );
+        return 'Argent';
       case 'bronze':
-        return (
-          <span className="text-[10px] font-mono-code px-2 py-0.5 bg-orange-950/40 text-orange-400 border border-orange-600/40 font-bold uppercase tracking-wider">
-            TROPHÉE BRONZE
-          </span>
-        );
+        return 'Bronze';
     }
   };
+
+  const pct = Math.round((stats.objectivesDone / (stats.objectivesTotal || 1)) * 100);
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
@@ -70,165 +91,257 @@ export const ObjectivesView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-amber-400" />
-            <h1 className="text-2xl font-bold font-hud text-white">OBJECTIFS & TROPHÉES</h1>
+            <Trophy className="w-6 h-6 text-[#ff7b00]" />
+            <h1 className="text-2xl font-bold font-hud text-white uppercase">
+              Objectifs &amp; Trophées
+            </h1>
           </div>
           <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-            Défis de maître, succès Steam / PlayStation / Xbox et trophée Platine avec alertes HUD en direct.
+            Suivi de vos défis personnels, paliers de progression et notifications HUD.
           </p>
         </div>
 
-        {/* Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-          {[
-            { id: 'all', label: 'Tous' },
-            { id: 'platinum', label: 'Platine' },
-            { id: 'gold', label: 'Or' },
-            { id: 'silver', label: 'Argent' },
-            { id: 'bronze', label: 'Bronze' },
-          ].map((chip) => (
-            <button
-              key={chip.id}
-              onClick={() => setSelectedTier(chip.id)}
-              className={`px-3 py-1.5 text-xs font-mono-code whitespace-nowrap cursor-pointer transition-colors ${
-                selectedTier === chip.id
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
-                  : 'bg-[#0c1322] text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowNewForm((prev) => !prev)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-wider cursor-pointer whitespace-nowrap"
+        >
+          {showNewForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          <span>{showNewForm ? 'Fermer' : 'Nouvel objectif'}</span>
+        </button>
       </div>
 
-      {/* Progress banner & Quick Toast Test Controls */}
-      <div className="bg-[#0c1322] border border-cyan-950/80 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 glow-cyan flex-shrink-0">
-            <Flame className="w-6 h-6" />
+      {/* Inline Add Objective Form */}
+      {showNewForm && (
+        <form onSubmit={handleCreateObjective} className="jitalx-panel p-4 space-y-3">
+          <div className="text-xs font-hud font-bold uppercase text-[#00f0ff]">
+            Créer un objectif / trophée
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input
+              type="text"
+              required
+              placeholder="Titre de l'objectif *"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              className="jitalx-input px-3 py-2 text-xs"
+            />
+            <div className="grid grid-cols-3 gap-2">
+              <select
+                value={newTier}
+                onChange={(e) => setNewTier(e.target.value as ObjectiveTier)}
+                className="jitalx-input px-2 py-2 text-xs"
+              >
+                <option value="bronze">Bronze</option>
+                <option value="silver">Argent</option>
+                <option value="gold">Or</option>
+                <option value="platinum">Platine</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Catégorie"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="jitalx-input px-2 py-2 text-xs"
+              />
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={newMaxProgress}
+                onChange={(e) => setNewMaxProgress(e.target.value)}
+                title="Palier cible"
+                className="jitalx-input px-2 py-2 text-xs"
+              />
+            </div>
+          </div>
+          <input
+            type="text"
+            placeholder="Description / condition de déblocage"
+            value={newDesc}
+            onChange={(e) => setNewDesc(e.target.value)}
+            className="w-full jitalx-input px-3 py-2 text-xs"
+          />
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="px-4 py-2 bg-[#00f0ff] text-[#120428] font-hud font-bold text-xs uppercase cursor-pointer"
+            >
+              Enregistrer l&apos;objectif
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Progress banner, Filters & Toast Preview */}
+      <div className="jitalx-panel p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <div className="text-[11px] font-mono-code text-slate-400 uppercase tracking-widest">
-              Progression Succès Débloqués
+            <div className="text-[11px] font-mono-code text-slate-400 uppercase">
+              Trophées débloqués
             </div>
-            <div className="text-xl font-bold font-hud text-white">
-              {stats.objectivesDone} / {stats.objectivesTotal} Débloqués (
-              {Math.round((stats.objectivesDone / (stats.objectivesTotal || 1)) * 100)}%)
+            <div className="text-xl font-bold font-hud text-white tabular-nums">
+              {stats.objectivesDone} / {stats.objectivesTotal} ({pct}%)
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { id: 'all', label: 'Tous' },
+              { id: 'platinum', label: 'Platine' },
+              { id: 'gold', label: 'Or' },
+              { id: 'silver', label: 'Argent' },
+              { id: 'bronze', label: 'Bronze' },
+            ].map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setSelectedTier(chip.id)}
+                className={`px-3 py-1.5 text-xs font-mono-code whitespace-nowrap cursor-pointer border ${
+                  selectedTier === chip.id
+                    ? 'bg-[#00f0ff]/15 text-[#00f0ff] border-[#00f0ff]/60'
+                    : 'bg-[#0b021a] text-slate-400 hover:text-white border-white/10'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* HUD Test Triggers Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
-          <span className="text-[10px] font-mono-code text-slate-500 flex items-center gap-1 uppercase tracking-wider mr-1">
-            <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
-            Test HUD Toast:
-          </span>
-          <button
-            onClick={() =>
-              triggerAchievement(
-                'Légende de la Baie du Littoral',
-                'platinum',
-                'Trophée ultime débloqué. Vous dominez l’intégralité de la baie côtière.'
-              )
-            }
-            className="px-2 py-1 text-[10px] font-mono-code bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 cursor-pointer transition-all hover:shadow-[0_0_12px_rgba(6,182,212,0.4)]"
-            title="Tester un Toast Platine"
-          >
-            Platine
-          </button>
-          <button
-            onClick={() =>
-              triggerAchievement(
-                'Roi du Marché Noir',
-                'gold',
-                'Tous les coffres blindés de la zone industrielle ont été fracturés.'
-              )
-            }
-            className="px-2 py-1 text-[10px] font-mono-code bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-pointer transition-all hover:shadow-[0_0_12px_rgba(245,158,11,0.4)]"
-            title="Tester un Toast Or"
-          >
-            Or
-          </button>
-          <button
-            onClick={() =>
-              triggerAchievement(
-                'Pilote d’Élite',
-                'silver',
-                'Atteignez la vitesse maximale sur l’autoroute sans collision.'
-              )
-            }
-            className="px-2 py-1 text-[10px] font-mono-code bg-slate-400/10 hover:bg-slate-400/20 text-slate-200 border border-slate-400/40 cursor-pointer transition-all hover:shadow-[0_0_12px_rgba(203,213,225,0.3)]"
-            title="Tester un Toast Argent"
-          >
-            Argent
-          </button>
-          <button
-            onClick={() =>
-              triggerAchievement(
-                'Premier Contrat Honoré',
-                'bronze',
-                'Votre premier contrat de mercenaire est validé avec succès.'
-              )
-            }
-            className="px-2 py-1 text-[10px] font-mono-code bg-orange-950/30 hover:bg-orange-950/50 text-orange-400 border border-orange-600/40 cursor-pointer transition-all hover:shadow-[0_0_12px_rgba(234,88,12,0.3)]"
-            title="Tester un Toast Bronze"
-          >
-            Bronze
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/10 text-[11px] font-mono-code text-slate-400">
+          <span>Aperçu des notifications de trophée HUD :</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() =>
+                triggerAchievement(
+                  'Aperçu Trophée Platine',
+                  'platinum',
+                  'Notification HUD de démonstration pour un trophée Platine.'
+                )
+              }
+              className="px-2 py-1 bg-[#0b021a] border border-[#00f0ff]/40 text-[#00f0ff] hover:bg-[#00f0ff]/15 cursor-pointer"
+            >
+              Tester Platine
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                triggerAchievement(
+                  'Aperçu Trophée Or',
+                  'gold',
+                  'Notification HUD de démonstration pour un trophée Or.'
+                )
+              }
+              className="px-2 py-1 bg-[#0b021a] border border-amber-400/40 text-amber-300 hover:bg-amber-400/15 cursor-pointer"
+            >
+              Tester Or
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Objectives list */}
       <div className="space-y-3">
-        {filteredObjectives.map((obj) => (
-          <div
-            key={obj.id}
-            onClick={() => toggleObjective(obj.id)}
-            className={`p-4 border transition-all cursor-pointer flex items-center justify-between gap-4 ${
-              obj.completed
-                ? 'bg-slate-950/60 border-slate-800/80 opacity-75'
-                : 'bg-[#0c1322] border-slate-800/80 hover:border-cyan-500/50 hover:bg-[#0e1628] shadow-md'
-            }`}
-          >
-            <div className="flex items-start gap-3.5 min-w-0">
-              <div className="mt-1 p-2 bg-slate-900 border border-slate-800 flex-shrink-0">
-                {getTierIcon(obj.tier)}
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  {getTierBadge(obj.tier)}
-                  <span className="text-xs font-mono-code text-slate-500">• {obj.category}</span>
-                </div>
-                <h3
-                  className={`font-hud font-bold text-base truncate ${
-                    obj.completed ? 'line-through text-slate-500' : 'text-white'
-                  }`}
-                >
-                  {obj.title}
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">{obj.description}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 flex-shrink-0">
-              <div className="text-right hidden sm:block">
-                <span className="text-xs font-mono-code text-slate-400">
-                  {obj.progress} / {obj.maxProgress}
-                </span>
-              </div>
-              <div>
-                {obj.completed ? (
-                  <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-                ) : (
-                  <Circle className="w-6 h-6 text-slate-600 hover:text-cyan-400 transition-colors" />
-                )}
-              </div>
-            </div>
+        {filteredObjectives.length === 0 ? (
+          <div className="p-8 text-center jitalx-panel text-slate-300 text-sm">
+            Aucun objectif dans cette catégorie.
           </div>
-        ))}
+        ) : (
+          filteredObjectives.map((obj) => {
+            const objPct = Math.round((obj.progress / (obj.maxProgress || 1)) * 100);
+            return (
+              <div
+                key={obj.id}
+                className={`jitalx-panel p-4 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  obj.completed ? 'opacity-75 border-white/10' : 'hover:border-[#00f0ff]/45'
+                }`}
+              >
+                <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                  <div className="mt-0.5 p-2 bg-[#0b021a] border border-white/10 shrink-0">
+                    {getTierIcon(obj.tier)}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-[11px] font-mono-code text-slate-400">
+                      <span className="text-[#00f0ff] uppercase font-semibold">
+                        Trophée {getTierLabel(obj.tier)}
+                      </span>
+                      <span>·</span>
+                      <span>{obj.category}</span>
+                    </div>
+                    <h3
+                      className={`font-hud font-bold text-base mt-0.5 ${
+                        obj.completed ? 'line-through text-slate-400' : 'text-white'
+                      }`}
+                    >
+                      {obj.title}
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1">{obj.description}</p>
+
+                    <div className="mt-2.5 max-w-sm">
+                      <div className="h-1.5 w-full bg-[#090216] overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-[#ff2a85] to-[#00f0ff] transition-all duration-300"
+                          style={{ width: `${objPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {obj.maxProgress > 1 && (
+                    <div className="flex items-center gap-1 bg-[#0b021a] border border-white/10 p-1">
+                      <button
+                        type="button"
+                        onClick={() => stepObjectiveProgress(obj.id, -1)}
+                        className="p-1 text-slate-300 hover:text-white cursor-pointer"
+                        aria-label="Diminuer progression"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="px-2 text-xs font-mono-code text-white tabular-nums">
+                        {obj.progress}/{obj.maxProgress}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => stepObjectiveProgress(obj.id, 1)}
+                        className="p-1 text-[#00f0ff] hover:text-white cursor-pointer"
+                        aria-label="Augmenter progression"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => toggleObjective(obj.id)}
+                    className="p-1.5 cursor-pointer"
+                    title={obj.completed ? 'Réinitialiser' : 'Marquer débloqué'}
+                  >
+                    {obj.completed ? (
+                      <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                    ) : (
+                      <Circle className="w-6 h-6 text-slate-500 hover:text-[#00f0ff]" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteObjective(obj.id)}
+                    className="p-1.5 text-slate-500 hover:text-rose-400 cursor-pointer"
+                    title="Supprimer cet objectif"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

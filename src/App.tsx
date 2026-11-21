@@ -2,19 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AppRoute } from './types';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GameProvider, useGame } from './context/GameContext';
+import { LocaleProvider } from './context/LocaleContext';
 import { ToastProvider } from './context/ToastContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CyberBackground } from './components/CyberBackground';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { HomeView } from './components/views/HomeView';
-import { MissionsView } from './components/views/MissionsView';
-import { CollectiblesView } from './components/views/CollectiblesView';
+import { ProgressionView } from './components/views/ProgressionView';
 import { VehiclesView } from './components/views/VehiclesView';
-import { ObjectivesView } from './components/views/ObjectivesView';
+import { MapView } from './components/views/MapView';
 import { NotesView } from './components/views/NotesView';
 import { StatsView } from './components/views/StatsView';
-import { ModalNewItem } from './components/ModalNewItem';
+import { ModalNewItem, NewItemModalType } from './components/ModalNewItem';
 import { LandingPage } from './components/LandingPage';
 import { DemoPage } from './components/DemoPage';
 import { PricingPage } from './components/PricingPage';
@@ -22,6 +22,7 @@ import { StreamersLaunchPage } from './components/StreamersLaunchPage';
 import { AccountPage } from './components/AccountPage';
 import { StreamerOverlay } from './components/StreamerOverlay';
 import { useAchievementWatcher } from './hooks/useAchievementWatcher';
+import { AlertTriangle, X } from 'lucide-react';
 
 const ROUTE_TO_PATH: Record<AppRoute, string> = {
   landing: '/',
@@ -55,21 +56,32 @@ function parseRouteFromPath(pathname: string): AppRoute {
 }
 
 const AppContent: React.FC = () => {
-  const { currentTab, objectives, activeTheme, setSyncedCustomProfiles } = useGame();
-  const { customProfiles } = useAuth();
+  const {
+    currentTab,
+    objectives,
+    activeTheme,
+    setSyncedCustomProfiles,
+    storageError,
+    clearStorageError,
+  } = useGame();
+  const { customProfiles, cloudError, clearCloudError } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalDefaultType, setModalDefaultType] = useState<NewItemModalType>('mission');
   const [activeRoute, setActiveRoute] = useState<AppRoute>(() =>
     typeof window !== 'undefined' ? parseRouteFromPath(window.location.pathname) : 'landing'
   );
 
   const isSunsetNeon = activeTheme === 'sunset-neon';
 
-  // Sync Firestore custom game profiles into GameContext
+  const openNewItemModal = useCallback((defaultType: NewItemModalType = 'mission') => {
+    setModalDefaultType(defaultType);
+    setIsModalOpen(true);
+  }, []);
+
   useEffect(() => {
     setSyncedCustomProfiles(customProfiles);
   }, [customProfiles, setSyncedCustomProfiles]);
 
-  // Keep browser history synchronized for clean Vercel SPA routes
   useEffect(() => {
     const handlePopState = () => {
       setActiveRoute(parseRouteFromPath(window.location.pathname));
@@ -93,7 +105,6 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  // Automatically listen for objective completion and dispatch achievement toasts
   useAchievementWatcher(objectives);
 
   if (activeRoute === 'overlay') {
@@ -125,27 +136,25 @@ const AppContent: React.FC = () => {
       case 'home':
         return (
           <HomeView
-            onOpenNewItemModal={() => setIsModalOpen(true)}
-            onOpenLanding={() => navigate('landing')}
+            onOpenNewItemModal={() => openNewItemModal('mission')}
+            onOpenStreamer={() => navigate('overlay')}
           />
         );
-      case 'missions':
-        return <MissionsView onOpenNewItemModal={() => setIsModalOpen(true)} />;
-      case 'collectibles':
-        return <CollectiblesView onOpenNewItemModal={() => setIsModalOpen(true)} />;
-      case 'vehicles':
-        return <VehiclesView onOpenNewItemModal={() => setIsModalOpen(true)} />;
-      case 'objectives':
-        return <ObjectivesView />;
+      case 'progression':
+        return <ProgressionView onOpenNewItemModal={openNewItemModal} />;
+      case 'garage':
+        return <VehiclesView onOpenNewItemModal={() => openNewItemModal('vehicle')} />;
+      case 'map':
+        return <MapView />;
       case 'notes':
-        return <NotesView onOpenNewItemModal={() => setIsModalOpen(true)} />;
+        return <NotesView onOpenNewItemModal={() => openNewItemModal('note')} />;
       case 'stats':
-        return <StatsView />;
+        return <StatsView onOpenAccount={() => navigate('account')} />;
       default:
         return (
           <HomeView
-            onOpenNewItemModal={() => setIsModalOpen(true)}
-            onOpenLanding={() => navigate('landing')}
+            onOpenNewItemModal={() => openNewItemModal('mission')}
+            onOpenStreamer={() => navigate('overlay')}
           />
         );
     }
@@ -159,29 +168,44 @@ const AppContent: React.FC = () => {
           : 'bg-[#090d16] selection:bg-cyan-500/30 selection:text-cyan-200'
       }`}
     >
-      {/* Tactical Multi-Layer Background (Grid, CRT, Grain, Vignette) */}
       <CyberBackground />
 
-      {/* Tactical Top Bar */}
       <Header
         onOpenLanding={() => navigate('landing')}
-        onOpenStreamer={() => navigate('overlay')}
         onOpenAccount={() => navigate('account')}
       />
 
-      {/* Main Tab Navigation */}
-      <BottomNav />
+      <BottomNav onOpenStreamer={() => navigate('overlay')} />
 
-      {/* Main Content Area */}
+      {(storageError || cloudError) && (
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="p-3 bg-rose-950/75 border border-rose-500/60 rounded-xl text-xs text-rose-100 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{storageError || cloudError}</span>
+            </div>
+            <button
+              onClick={() => {
+                if (storageError) clearStorageError();
+                if (cloudError) clearCloudError();
+              }}
+              className="p-1 text-rose-300 hover:text-white cursor-pointer"
+              aria-label="Fermer l'alerte"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {renderActiveView()}
       </main>
 
-      {/* Discreet 10JITAL Production Signature & Commercial Links */}
       <footer className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-20 md:pb-5 pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/5 mt-8">
         <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono-code text-slate-400">
           <button onClick={() => navigate('landing')} className="hover:text-[#00f0ff] cursor-pointer">
-            Accueil
+            Présentation
           </button>
           <button onClick={() => navigate('demo')} className="hover:text-[#00f0ff] cursor-pointer">
             Démo
@@ -190,7 +214,7 @@ const AppContent: React.FC = () => {
             Tarifs
           </button>
           <button onClick={() => navigate('streamers')} className="hover:text-[#00f0ff] cursor-pointer">
-            GTA 6 Streamers (EN)
+            Streamers (EN)
           </button>
           <button onClick={() => navigate('account')} className="hover:text-[#00f0ff] cursor-pointer">
             Compte &amp; Cloud
@@ -201,8 +225,11 @@ const AppContent: React.FC = () => {
         </span>
       </footer>
 
-      {/* Add New Entry Modal */}
-      <ModalNewItem isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <ModalNewItem
+        isOpen={isModalOpen}
+        defaultType={modalDefaultType}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 };
@@ -210,13 +237,15 @@ const AppContent: React.FC = () => {
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <GameProvider>
-          <ToastProvider>
-            <AppContent />
-          </ToastProvider>
-        </GameProvider>
-      </AuthProvider>
+      <LocaleProvider>
+        <AuthProvider>
+          <GameProvider>
+            <ToastProvider>
+              <AppContent />
+            </ToastProvider>
+          </GameProvider>
+        </AuthProvider>
+      </LocaleProvider>
     </ErrorBoundary>
   );
 }

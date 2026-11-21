@@ -116,21 +116,21 @@ export const StreamersLaunchPage: React.FC<StreamersLaunchPageProps> = ({ onNavi
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-7 space-y-6">
               <div className="text-xs font-mono-code text-[#00f0ff] uppercase tracking-widest">
-                JITALX · THE STREAMER COMMAND HUB · Built for GTA 6 Streamers
+                JITALX · THE STREAMER COMMAND HUB · Independent Open-World Overlay Suite
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-hud font-bold text-white leading-[1.08] max-w-2xl">
-                Turn your GTA 6 marathon into a{' '}
+                Turn your open-world marathon into a{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff2a85] via-[#ff7b00] to-[#00f0ff]">
                   live tactical broadcast
                 </span>
               </h1>
 
               <p className="text-slate-200 text-base sm:text-lg leading-relaxed max-w-2xl">
-                JITALX pairs a zero-latency second-screen mission tracker with a built-in OBS and
-                TikTok Live Studio overlay. Keep your audience locked in on your 100% completion
-                run, active mission steps, collectibles, and session timer without ever alt-tabbing
-                into messy spreadsheets.
+                JITALX pairs a customizable second-screen mission tracker with a built-in OBS and
+                TikTok Live Studio overlay. Built for upcoming open-world marathons (including
+                community GTA VI streams once released) using your own custom checklists or our
+                editable fictional demo presets.
               </p>
 
               <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -224,11 +224,11 @@ export const StreamersLaunchPage: React.FC<StreamersLaunchPageProps> = ({ onNavi
               01. Why Creators Use JITALX
             </div>
             <h2 className="text-3xl font-hud font-bold text-white">
-              Designed for high-retention GTA 6 launch streams
+              Designed for high-retention open-world launch streams
             </h2>
             <p className="text-sm text-slate-300 leading-relaxed">
               Every module is engineered to reduce broadcast friction while giving viewers real-time
-              context on where you stand in your playthrough.
+              context on your custom playthrough goals. Included universes are fictional, fully editable demo data.
             </p>
           </div>
 
@@ -273,12 +273,12 @@ export const StreamersLaunchPage: React.FC<StreamersLaunchPageProps> = ({ onNavi
                 <span>02. Creators &amp; Partnerships</span>
               </div>
               <h2 className="text-3xl font-hud font-bold text-white">
-                Partner with JITALX ahead of GTA 6 launch
+                Partner with JITALX for your next marathon
               </h2>
               <p className="text-sm text-slate-300 leading-relaxed">
                 We are opening early creator collaborations for Twitch, YouTube, Kick, and TikTok
-                Live broadcasters preparing GTA 6 story runs, 100% completion challenges, and
-                community events.
+                Live broadcasters preparing story runs, 100% completion challenges, and community
+                open-world events.
               </p>
 
               <div className="space-y-3 pt-2 text-sm text-slate-200">

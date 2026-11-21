@@ -1,4 +1,6 @@
-export type TabType = 'home' | 'missions' | 'collectibles' | 'vehicles' | 'objectives' | 'notes' | 'stats';
+export type TabType = 'home' | 'progression' | 'garage' | 'map' | 'notes' | 'stats';
+
+export type ProgressionSubTab = 'missions' | 'collectibles' | 'objectives';
 
 export type AppRoute = 'landing' | 'app' | 'demo' | 'pricing' | 'streamers' | 'account' | 'overlay';
 
@@ -37,7 +39,7 @@ export interface Collectible {
   coordinates?: string;
 }
 
-export type VehicleCategory = 'sport' | 'muscle' | 'moto' | 'offroad' | 'heavy';
+export type VehicleCategory = 'car' | 'sport' | 'muscle' | 'moto' | 'offroad' | 'special' | 'heavy';
 
 export interface Vehicle {
   id: string;
@@ -51,6 +53,7 @@ export interface Vehicle {
   location: string;
   isFavorite?: boolean;
   notes?: string;
+  imageUrl?: string;
 }
 
 export type ObjectiveTier = 'bronze' | 'silver' | 'gold' | 'platinum';
@@ -73,6 +76,28 @@ export interface TacticalNote {
   tags: string[];
   pinned: boolean;
   updatedAt: string;
+}
+
+export type MapMarkerCategory = 'poi' | 'mission' | 'objective' | 'collectible' | 'vehicle';
+
+export interface MapMarker {
+  id: string;
+  title: string;
+  category: MapMarkerCategory;
+  x: number; // percentage 0..100
+  y: number; // percentage 0..100
+  district?: string;
+  description?: string;
+  createdAt: string;
+}
+
+export type ActivityType = 'mission' | 'collectible' | 'vehicle' | 'objective' | 'note' | 'map';
+
+export interface ActivityItem {
+  id: string;
+  type: ActivityType;
+  label: string;
+  timestamp: string;
 }
 
 export type UniverseTheme = 'sunset-neon' | 'cyber-grid' | 'open-world';

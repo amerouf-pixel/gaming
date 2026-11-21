@@ -14,7 +14,7 @@ interface RadarTarget {
 }
 
 export const SectorRadar: React.FC = () => {
-  const { missions, collectibles, setCurrentTab } = useGame();
+  const { missions, collectibles, openProgressionTab } = useGame();
   const [isScanning, setIsScanning] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [selectedTarget, setSelectedTarget] = useState<RadarTarget | null>(null);
@@ -259,9 +259,9 @@ export const SectorRadar: React.FC = () => {
                     onClick={(e) => {
                       e.stopPropagation();
                       if (tgt.type === 'mission') {
-                        setCurrentTab('missions');
+                        openProgressionTab('missions');
                       } else {
-                        setCurrentTab('collectibles');
+                        openProgressionTab('collectibles');
                       }
                     }}
                     className="p-1.5 text-xs text-slate-400 hover:text-cyan-300 transition-colors flex-shrink-0"
@@ -281,8 +281,8 @@ export const SectorRadar: React.FC = () => {
               </span>
               <button
                 onClick={() => {
-                  if (selectedTarget.type === 'mission') setCurrentTab('missions');
-                  else setCurrentTab('collectibles');
+                  if (selectedTarget.type === 'mission') openProgressionTab('missions');
+                  else openProgressionTab('collectibles');
                 }}
                 className="text-[11px] text-cyan-300 font-bold hover:underline flex-shrink-0"
               >

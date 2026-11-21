@@ -1,5 +1,25 @@
 import { SubscriptionTier } from '../types';
 
+// Véritable lien produit Gumroad pour l'offre de lancement JITALX (7 €)
+export const GUMROAD_PRODUCT_URL = 'https://gumroad.com/l/jitalx-full-access';
+
+/**
+ * Contrat serveur préparé pour un futur webhook Gumroad Ping (ex. route Vercel /api/gumroad/webhook).
+ * La validation d'achat et l'écriture de `subscriptionTier: 'lifetime'` dans Firestore
+ * doivent impérativement être effectuées côté serveur après vérification de la vente Gumroad,
+ * jamais depuis le navigateur ni via localStorage.
+ */
+export interface GumroadPingPayload {
+  seller_id: string;
+  product_id: string;
+  product_permalink: string;
+  sale_id: string;
+  email: string;
+  price: number;
+  currency: string;
+  refunded?: boolean;
+}
+
 export interface SubscriptionPlanDefinition {
   id: SubscriptionTier;
   name: string;
@@ -10,6 +30,7 @@ export interface SubscriptionPlanDefinition {
   numericPriceEur: number;
   stripePriceEnvKey: string;
   stripePriceId: string;
+  gumroadUrl?: string;
   recommended?: boolean;
   features: string[];
   limits: {
@@ -52,7 +73,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanDefinition[] = [
   {
     id: 'free',
     name: 'Starter Free',
-    tagline: 'Idéal pour découvrir JITALX et suivre sa première campagne en monde ouvert.',
+    tagline: 'Découvrez JITALX gratuitement et organisez votre première campagne en monde ouvert.',
     priceDisplay: '0 €',
     billingCycle: 'Gratuit · Sans carte bancaire',
     numericPriceEur: 0,
@@ -62,31 +83,58 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanDefinition[] = [
       'Tableau de bord tactique & Radar Holo 360°',
       'Suivi Missions, Collectibles, Garage, Objectifs & Notes',
       'Sauvegarde locale instantanée + Export / Import JSON',
-      'Mode Streamer OBS (Chroma, Transparent, Sunset Néon)',
-      '3 univers préconfigurés inclus',
+      'Streamer Studio OBS (Chroma, Transparent, Sunset Néon)',
+      '3 univers de démonstration personnalisables inclus',
     ],
     limits: {
-      customProfiles: '3 univers inclus',
-      cloudSnapshots: 'Sauvegarde locale + 1 snapshot cloud',
+      customProfiles: '3 univers inclus + locaux',
+      cloudSnapshots: 'Snapshots Cloud manuels (compte connecté)',
       overlayBranding: 'Signature discrète JITALX • 10JITAL',
-      supportLevel: 'Documentation communautaire',
+      supportLevel: 'Documentation',
+    },
+  },
+  {
+    id: 'lifetime',
+    name: 'JITALX Full Access',
+    badge: 'OFFRE DE LANCEMENT · GUMROAD',
+    tagline: 'Paiement unique sur Gumroad pour soutenir JITALX et accéder à l’édition complète.',
+    priceDisplay: '7 €',
+    billingCycle: 'Paiement unique sur Gumroad · Offre de lancement',
+    numericPriceEur: 7,
+    stripePriceEnvKey: 'VITE_STRIPE_PRICE_LIFETIME',
+    stripePriceId: STRIPE_CONFIG.priceIds.lifetime,
+    gumroadUrl: GUMROAD_PRODUCT_URL,
+    recommended: true,
+    features: [
+      '7 € — Paiement sécurisé directement sur Gumroad',
+      'Tous les thèmes (Sunset Néon, Secteur Cyber, Monde Libre)',
+      'Streamer Studio 16:9 (Twitch/YouTube) & 9:16 (TikTok Live)',
+      'Profils personnalisés & sauvegardes Cloud Firestore',
+      'Aucune donnée bancaire saisie dans JITALX',
+    ],
+    limits: {
+      customProfiles: 'Illimités',
+      cloudSnapshots: 'Instantanés Cloud & Export JSON',
+      overlayBranding: 'Option masquage signature incluse',
+      supportLevel: 'Mises à jour incluses',
     },
   },
   {
     id: 'pro_monthly',
     name: 'Pro Mensuel',
-    tagline: 'Accès flexible pour compléter une campagne 100 % avec synchronisation cloud.',
+    badge: 'BIENTÔT · STRIPE',
+    tagline: 'Formule mensuelle préparée pour une future activation via Stripe Checkout.',
     priceDisplay: '4,99 €',
-    billingCycle: '/ mois · Annulable à tout moment',
+    billingCycle: '/ mois · En préparation Stripe',
     numericPriceEur: 4.99,
     stripePriceEnvKey: 'VITE_STRIPE_PRICE_PRO_MONTHLY',
     stripePriceId: STRIPE_CONFIG.priceIds.pro_monthly,
     features: [
       'Toutes les fonctionnalités Starter Free',
       'Profils de jeux personnalisés illimités',
-      'Synchronisation Cloud Firestore multi-appareils',
-      'Statistiques avancées & courbe de progression',
-      'Toasts Trophées HUD & effets audio tactiques',
+      'Instantanés Cloud Firestore multi-appareils',
+      'Statistiques avancées & alertes HUD',
+      'Activation prévue après configuration serveur Stripe',
     ],
     limits: {
       customProfiles: 'Illimités',
@@ -96,51 +144,26 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanDefinition[] = [
     },
   },
   {
-    id: 'lifetime',
-    name: 'JITALX Full Access',
-    badge: 'OFFRE DE LANCEMENT',
-    tagline: 'Paiement unique pour débloquer JITALX — THE STREAMER COMMAND HUB à vie.',
-    priceDisplay: '7 €',
-    billingCycle: 'Paiement unique · Accès à vie',
-    numericPriceEur: 7,
-    stripePriceEnvKey: 'VITE_STRIPE_PRICE_LIFETIME',
-    stripePriceId: STRIPE_CONFIG.priceIds.lifetime,
-    recommended: true,
-    features: [
-      '7 € — Paiement unique / Accès à vie',
-      'Tous les thèmes & univers (Sunset Néon, Secteur Cyber, Monde Libre)',
-      'Overlay OBS 16:9 & TikTok Live 9:16 sans watermark',
-      'Profils personnalisés & Cloud Sync Firestore',
-      'Mises à jour majeures futures incluses',
-    ],
-    limits: {
-      customProfiles: 'Illimités',
-      cloudSnapshots: 'Illimités',
-      overlayBranding: 'Suppression signature incluse',
-      supportLevel: 'Accès prioritaire mises à jour',
-    },
-  },
-  {
     id: 'creator',
     name: 'Creator Studio',
-    badge: 'STREAMERS',
-    tagline: 'Pensé pour les créateurs Twitch, YouTube et TikTok Live en préparation GTA 6.',
+    badge: 'BIENTÔT · STRIPE',
+    tagline: 'Pensé pour les créateurs Twitch, YouTube et TikTok Live en mondes ouverts.',
     priceDisplay: '14,99 €',
-    billingCycle: '/ mois · Licence Créateur',
+    billingCycle: '/ mois · En préparation Stripe',
     numericPriceEur: 14.99,
     stripePriceEnvKey: 'VITE_STRIPE_PRICE_CREATOR_MONTHLY',
     stripePriceId: STRIPE_CONFIG.priceIds.creator,
     features: [
       'Tous les avantages JITALX Full Access',
-      'Widgets OBS avancés (Mission active, Compteur défi, URL Browser Source)',
-      'Gestion multi-chaînes et scènes 16:9 + 9:16',
-      'Accès anticipé aux packs d’overlays thématiques',
-      'Support créateur dédié & intégration partenaires',
+      'Widgets OBS avancés (Mission active, Compteur défi, URL Source)',
+      'Scènes 16:9 & 9:16 dédiées au streaming multi-plateformes',
+      'Accès anticipé aux futurs packs d’overlays',
+      'Activation prévue après configuration serveur Stripe',
     ],
     limits: {
       customProfiles: 'Illimités + Scènes multi-live',
       cloudSnapshots: 'Illimités + Restauration rapide',
-      overlayBranding: 'White-label complet',
+      overlayBranding: 'White-label',
       supportLevel: 'Support créateur direct',
     },
   },
@@ -167,7 +190,7 @@ export async function prepareStripeCheckoutSession(
       ok: false,
       status: 'unconfigured',
       message:
-        'Stripe n’est pas encore configuré. Ajoutez VITE_STRIPE_PUBLISHABLE_KEY, les VITE_STRIPE_PRICE_* et votre endpoint backend /api/stripe/create-checkout-session avant d’activer les paiements réels.',
+        'Stripe n’est pas encore configuré. Pour acheter JITALX dès maintenant (7 €), utilisez le lien officiel Gumroad.',
     };
   }
 
@@ -175,7 +198,7 @@ export async function prepareStripeCheckoutSession(
     return {
       ok: false,
       status: 'unconfigured',
-      message: `Aucun Stripe Price ID défini pour la formule "${intent.planId}". Configurez la variable d’environnement correspondante.`,
+      message: `Aucun Stripe Price ID défini pour la formule "${intent.planId}".`,
     };
   }
 
@@ -190,7 +213,7 @@ export async function prepareStripeCheckoutSession(
       return {
         ok: false,
         status: 'error',
-        message: `Endpoint Stripe indisponible (${response.status}). Vérifiez votre route serveur Vercel.`,
+        message: `Endpoint Stripe indisponible (${response.status}). Vérifiez votre route serveur.`,
       };
     }
 

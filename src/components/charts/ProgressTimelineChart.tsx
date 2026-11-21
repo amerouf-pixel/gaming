@@ -39,8 +39,8 @@ interface MilestonePoint {
 
 export const ProgressTimelineChart: React.FC<ProgressTimelineChartProps> = ({
   compact = false,
-  title = 'TÉLÉMÉTRIE DE PROGRESSION VS TEMPS DE JEU',
-  subtitle = 'Analyse dynamique de l’avancement des objectifs réels par heure de jeu et trajectoire 100%',
+  title = 'PROJECTION DE PROGRESSION VERS LE 100%',
+  subtitle = 'Estimation simulée à partir de vos compteurs actuels et du chrono de session',
   showFilters = true,
   defaultMetric = 'all',
 }) => {
@@ -300,8 +300,8 @@ export const ProgressTimelineChart: React.FC<ProgressTimelineChartProps> = ({
             <h2 className="text-base sm:text-lg font-bold font-hud text-white tracking-wider uppercase">
               {title}
             </h2>
-            <span className="hidden sm:inline-flex text-[10px] font-mono-code px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 uppercase font-semibold">
-              TEMPS RÉEL
+            <span className="hidden sm:inline-flex text-[10px] font-mono-code px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 uppercase font-semibold">
+              PROJECTION SIMULÉE
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
@@ -775,8 +775,8 @@ export const ProgressTimelineChart: React.FC<ProgressTimelineChartProps> = ({
             {velocityPerHour}
             <span className="text-xs text-slate-500 font-normal"> obj / h</span>
           </div>
-          <div className="text-[10px] text-emerald-400 mt-0.5">
-            Rythme optimal (+18%)
+          <div className="text-[10px] text-slate-400 mt-0.5">
+            Estimation indicative
           </div>
         </div>
 

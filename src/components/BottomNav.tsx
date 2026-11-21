@@ -1,159 +1,237 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { cyberAudio } from '../utils/cyberAudio';
 import { TabType } from '../types';
 import {
   LayoutDashboard,
   Compass,
-  Sparkles,
   Car,
-  Trophy,
+  Video,
+  Map,
   FileText,
   BarChart3,
+  MoreHorizontal,
+  X,
 } from 'lucide-react';
 
-interface NavItem {
-  id: TabType;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
+interface BottomNavProps {
+  onOpenStreamer?: () => void;
 }
 
-export const BottomNav: React.FC = () => {
+export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
   const { currentTab, setCurrentTab, stats, activeTheme } = useGame();
-  const isViceSunset = activeTheme === 'sunset-neon';
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const isSunsetNeon = activeTheme === 'sunset-neon';
 
-  const navItems: NavItem[] = [
+  const progressionRemaining =
+    stats.missionsTotal - stats.missionsDone + (stats.collectiblesTotal - stats.collectiblesDone);
+
+  const primaryTabs: {
+    id: TabType;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: number;
+  }[] = [
     { id: 'home', label: 'Accueil', icon: LayoutDashboard },
     {
-      id: 'missions',
-      label: 'Missions',
+      id: 'progression',
+      label: 'Progression',
       icon: Compass,
-      badge: stats.missionsTotal - stats.missionsDone,
+      badge: progressionRemaining,
     },
-    {
-      id: 'collectibles',
-      label: 'Collectibles',
-      icon: Sparkles,
-      badge: stats.collectiblesTotal - stats.collectiblesDone,
-    },
-    { id: 'vehicles', label: 'Véhicules', icon: Car },
-    { id: 'objectives', label: 'Objectifs', icon: Trophy },
-    { id: 'notes', label: 'Notes', icon: FileText },
-    { id: 'stats', label: 'Stats', icon: BarChart3 },
+    { id: 'garage', label: 'Garage', icon: Car },
   ];
+
+  const secondaryTabs: {
+    id: TabType;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }[] = [
+    { id: 'map', label: 'Carte', icon: Map },
+    { id: 'notes', label: 'Notes', icon: FileText },
+    { id: 'stats', label: 'Stats & JSON', icon: BarChart3 },
+  ];
+
+  const isSecondaryActive =
+    currentTab === 'map' || currentTab === 'notes' || currentTab === 'stats';
 
   return (
     <>
-      {/* Desktop / Tablet top tab bar below header */}
+      {/* Desktop / Tablet Navigation Bar: 4 Main Spaces + Compact Secondary Tools */}
       <nav
         className={`hidden md:block sticky top-16 z-30 transition-colors duration-300 ${
-          isViceSunset
+          isSunsetNeon
             ? 'bg-[#170632]/95 border-b border-[#ff2a85]/25'
-            : 'bg-[#0c1322] border-b border-cyan-950/70'
+            : 'bg-[#0c1322]/95 border-b border-cyan-950/70'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-1 sm:space-x-2 py-2 overflow-x-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentTab === item.id;
-              return (
+          <div className="flex items-center justify-between gap-4 py-2">
+            {/* 4 Primary Spaces */}
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {primaryTabs.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      cyberAudio.playClick();
+                      setCurrentTab(item.id);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 border ${
+                      isActive
+                        ? isSunsetNeon
+                          ? 'bg-[#ff2a85]/20 text-[#00f0ff] border-[#ff2a85]/60 glow-pink'
+                          : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 glow-cyan'
+                        : 'text-slate-300 hover:text-white hover:bg-white/5 border-transparent'
+                    }`}
+                  >
+                    <Icon
+                      className={`w-4 h-4 ${
+                        isActive
+                          ? isSunsetNeon
+                            ? 'text-[#ff2a85]'
+                            : 'text-cyan-400'
+                          : 'text-slate-400'
+                      }`}
+                    />
+                    <span className="font-hud uppercase">{item.label}</span>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className="ml-0.5 text-[11px] font-mono-code tabular-nums text-[#00f0ff]">
+                        ({item.badge})
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+
+              {/* 4th Primary Space: Streamer Studio */}
+              {onOpenStreamer && (
                 <button
-                  key={item.id}
+                  type="button"
                   onClick={() => {
-                    cyberAudio.playClick();
-                    setCurrentTab(item.id);
+                    cyberAudio.playChirp();
+                    onOpenStreamer();
                   }}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 ${
-                    isActive
-                      ? isViceSunset
-                        ? 'bg-[#ff2a85]/20 text-[#00f0ff] border border-[#ff2a85]/60 glow-pink'
-                        : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 glow-cyan'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-white/5'
+                  className={`flex items-center gap-2 px-4 py-2 text-xs font-hud font-bold uppercase tracking-wide transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 border ${
+                    isSunsetNeon
+                      ? 'bg-gradient-to-r from-[#ff2a85]/20 to-[#ff7b00]/20 hover:from-[#ff2a85]/35 hover:to-[#ff7b00]/30 text-[#ff7b00] border-[#ff2a85]/55'
+                      : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border-rose-500/50'
                   }`}
                 >
-                  <Icon
-                    className={`w-4 h-4 ${
-                      isActive
-                        ? isViceSunset
-                          ? 'text-[#ff2a85]'
-                          : 'text-cyan-400'
-                        : 'text-slate-500'
-                    }`}
-                  />
-                  <span className="font-hud">{item.label}</span>
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <span
-                      className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono-code tabular-nums ${
-                        isActive
-                          ? isViceSunset
-                            ? 'bg-[#00f0ff] text-[#120428] font-bold'
-                            : 'bg-cyan-500 text-slate-950 font-bold'
-                          : isViceSunset
-                          ? 'bg-[#260b4d] text-slate-300'
-                          : 'bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
+                  <Video className="w-4 h-4 text-[#ff2a85]" />
+                  <span>Streamer Studio</span>
                 </button>
-              );
-            })}
+              )}
+            </div>
+
+            {/* Compact Secondary Utilities: Carte, Notes & Stats/Backup */}
+            <div className="flex items-center gap-1.5 pl-3 border-l border-white/10 shrink-0">
+              {secondaryTabs.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      cyberAudio.playClick();
+                      setCurrentTab(item.id);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap border ${
+                      isActive
+                        ? isSunsetNeon
+                          ? 'bg-[#00f0ff]/15 text-[#00f0ff] border-[#00f0ff]/45'
+                          : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5 border-transparent'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span className="font-hud">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </nav>
 
-      {/* Mobile sticky bottom navigation */}
+      {/* Mobile Secondary Drawer (Carte / Notes / Stats) */}
+      {mobileToolsOpen && (
+        <div className="md:hidden fixed bottom-16 right-3 z-50 bg-[#170632] border border-[#ff2a85]/50 shadow-2xl p-2 space-y-1 min-w-[185px]">
+          <div className="flex items-center justify-between px-2 py-1 text-[10px] font-mono-code uppercase text-slate-400">
+            <span>Outils secondaires</span>
+            <button
+              type="button"
+              onClick={() => setMobileToolsOpen(false)}
+              className="text-slate-400 hover:text-white cursor-pointer"
+              aria-label="Fermer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {secondaryTabs.map((item) => {
+            const Icon = item.icon;
+            const active = currentTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  cyberAudio.playClick();
+                  setCurrentTab(item.id);
+                  setMobileToolsOpen(false);
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-hud uppercase cursor-pointer ${
+                  active
+                    ? 'bg-[#ff2a85]/20 text-[#00f0ff] border border-[#ff2a85]/50'
+                    : 'text-slate-200 hover:bg-white/5'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Mobile Bottom Navigation: 4 Main Spaces + Outils */}
       <nav
         className={`md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-lg px-2 py-1.5 safe-area-pb ${
-          isViceSunset
+          isSunsetNeon
             ? 'bg-[#120428]/95 border-t border-[#ff2a85]/35'
             : 'bg-[#090d16]/95 border-t border-cyan-950/80'
         }`}
       >
         <div className="flex items-center justify-around gap-1 max-w-lg mx-auto">
-          {navItems.map((item) => {
+          {primaryTabs.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => {
                   cyberAudio.playClick();
+                  setMobileToolsOpen(false);
                   setCurrentTab(item.id);
                 }}
-                className={`relative flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-all ${
+                className={`relative flex flex-col items-center justify-center py-1 px-2 transition-all cursor-pointer ${
                   isActive
-                    ? isViceSunset
+                    ? isSunsetNeon
                       ? 'text-[#00f0ff]'
                       : 'text-cyan-400'
-                    : 'text-slate-500 hover:text-slate-300'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <div className="relative">
-                  <Icon
-                    className={`w-5 h-5 transition-transform duration-200 ${
-                      isActive ? 'scale-110 stroke-[2.2]' : 'stroke-1.5'
-                    }`}
-                  />
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <span
-                      className={`absolute -top-1 -right-2 px-1 text-[9px] font-mono-code font-bold rounded-full tabular-nums ${
-                        isViceSunset
-                          ? 'bg-[#ff2a85] text-white'
-                          : 'bg-cyan-500 text-slate-950'
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
+                <Icon className={`w-5 h-5 ${isActive ? 'scale-105' : ''}`} />
                 <span
                   className={`text-[10px] mt-1 font-hud tracking-tight leading-none ${
                     isActive
-                      ? isViceSunset
+                      ? isSunsetNeon
                         ? 'font-bold text-[#ff7b00]'
                         : 'font-bold text-cyan-300'
                       : 'font-medium'
@@ -161,16 +239,42 @@ export const BottomNav: React.FC = () => {
                 >
                   {item.label}
                 </span>
-                {isActive && (
-                  <span
-                    className={`absolute bottom-0 w-3 h-0.5 rounded-full ${
-                      isViceSunset ? 'bg-[#ff2a85] glow-pink' : 'bg-cyan-400 glow-cyan'
-                    }`}
-                  />
-                )}
               </button>
             );
           })}
+
+          {onOpenStreamer && (
+            <button
+              type="button"
+              onClick={() => {
+                cyberAudio.playChirp();
+                setMobileToolsOpen(false);
+                onOpenStreamer();
+              }}
+              className="relative flex flex-col items-center justify-center py-1 px-2 text-[#ff2a85] hover:text-[#ff7b00] transition-all cursor-pointer"
+            >
+              <Video className="w-5 h-5" />
+              <span className="text-[10px] mt-1 font-hud font-bold tracking-tight leading-none">
+                Studio
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              cyberAudio.playClick();
+              setMobileToolsOpen((prev) => !prev);
+            }}
+            className={`relative flex flex-col items-center justify-center py-1 px-2 transition-all cursor-pointer ${
+              isSecondaryActive || mobileToolsOpen
+                ? 'text-[#00f0ff]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <MoreHorizontal className="w-5 h-5" />
+            <span className="text-[10px] mt-1 font-hud tracking-tight leading-none">Outils</span>
+          </button>
         </div>
       </nav>
     </>

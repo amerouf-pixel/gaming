@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useGame } from '../../context/GameContext';
 import { HoloRadar } from '../HoloRadar';
-import { DashboardMiniTelemetryChart } from '../charts/DashboardMiniTelemetryChart';
 import { cyberAudio } from '../../utils/cyberAudio';
+import {
+  getDefaultVehicleImage,
+  isValidImageUrl,
+  VEHICLE_CATEGORY_LABELS,
+} from '../../utils/vehicleVisuals';
 import {
   Compass,
   Sparkles,
@@ -14,186 +18,188 @@ import {
   Pin,
   MapPin,
   Plus,
-  Zap,
-  TrendingUp,
-  ShieldCheck,
-  Flame,
-  Layers,
-  ChevronRight,
-  Monitor,
-  Share2,
-  Radio,
+  Video,
+  Map,
+  Info,
+  Clock,
+  Award,
 } from 'lucide-react';
 
 interface HomeViewProps {
   onOpenNewItemModal: () => void;
-  onOpenLanding?: () => void;
+  onOpenStreamer?: () => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLanding }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenStreamer }) => {
   const {
     activeProfile,
-    activeTheme,
     overallProgress,
     stats,
     missions,
     collectibles,
     vehicles,
+    objectives,
     notes,
-    sessionSeconds,
+    activityLog,
     setCurrentTab,
+    openProgressionTab,
     toggleMissionStep,
     toggleCollectible,
   } = useGame();
 
-  const isSunsetNeon = activeTheme === 'sunset-neon';
-  const [companionDeckMode, setCompanionDeckMode] = useState<boolean>(false);
-  const [showCommercialModal, setShowCommercialModal] = useState<boolean>(false);
-
+  const inProgressMissions = missions.filter((m) => m.status === 'in_progress');
   const activeMission =
-    missions.find((m) => m.status === 'in_progress' || m.priority) || missions[0];
+    inProgressMissions[0] ||
+    missions.find((m) => m.priority && m.status !== 'completed') ||
+    missions.find((m) => m.status !== 'completed') ||
+    missions[0];
+
+  const priorityObjectives = objectives.filter((o) => !o.completed).slice(0, 3);
+  const unlockedObjectives = objectives.filter((o) => o.completed);
   const nextCollectibles = collectibles.filter((c) => !c.collected).slice(0, 3);
-  const favoriteVehicle = vehicles.find((v) => v.isFavorite) || vehicles[0];
+  const ownedVehicles = vehicles.filter((v) => v.unlocked);
+  const featuredVehicle =
+    ownedVehicles.find((v) => v.isFavorite) ||
+    ownedVehicles[0] ||
+    vehicles.find((v) => v.isFavorite) ||
+    vehicles[0];
   const pinnedNotes = notes.filter((n) => n.pinned).slice(0, 2);
 
-  // Speedrun & 100% Trajectory Calculations
-  const totalTasks =
+  const totalItems =
     stats.missionsTotal + stats.collectiblesTotal + stats.vehiclesTotal + stats.objectivesTotal;
-  const completedTasks =
+  const completedItems =
     stats.missionsDone + stats.collectiblesDone + stats.vehiclesUnlocked + stats.objectivesDone;
-  const remainingTasks = Math.max(0, totalTasks - completedTasks);
 
-  // Velocity: estimated tasks per hour
-  const hoursPlayed = Math.max(0.1, sessionSeconds / 3600);
-  const estimatedHoursRemaining = Math.max(
-    1.2,
-    Math.round(((remainingTasks * 0.35) / Math.max(1, completedTasks / hoursPlayed)) * 10) / 10
-  );
+  const featuredVehicleSrc = featuredVehicle
+    ? isValidImageUrl(featuredVehicle.imageUrl)
+      ? featuredVehicle.imageUrl!
+      : getDefaultVehicleImage(featuredVehicle.category)
+    : '';
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
-      {/* ========================================================================= */}
-      {/* 1. HERO TACTICAL BANNER & COMMERCIAL HEADLINE                             */}
-      {/* ========================================================================= */}
-      <div
-        className={`relative overflow-hidden border p-6 sm:p-8 shadow-2xl transition-colors ${
-          isSunsetNeon
-            ? 'bg-gradient-to-br from-[#1a0736] via-[#120428] to-[#0e0320] border-[#ff2a85]/45'
-            : 'bg-gradient-to-br from-[#070c18] via-[#091022] to-[#050912] border-cyan-900/60'
-        }`}
-      >
-        {/* Glow ambient meshes */}
-        <div
-          className={`absolute top-0 right-0 w-[450px] h-[450px] rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20 ${
-            isSunsetNeon ? 'bg-[#ff2a85]/18' : 'bg-cyan-500/10'
-          }`}
-        />
-        <div
-          className={`absolute bottom-0 left-1/3 w-[300px] h-[300px] rounded-full blur-[90px] pointer-events-none ${
-            isSunsetNeon ? 'bg-[#ff7b00]/14' : 'bg-indigo-500/10'
-          }`}
-        />
+      {/* 1. CENTRE DE COMMANDEMENT — HERO UNIFIÉ STYLE STREAMER STUDIO */}
+      <section className="jitalx-panel p-5 sm:p-7 relative overflow-hidden jitalx-chamfer">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-2.5 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-mono-code text-slate-300">
+              <span className="text-[#00f0ff] font-semibold uppercase tracking-wider">
+                Centre de commandement
+              </span>
+              <span className="text-slate-600">·</span>
+              <span>{activeProfile.name}</span>
+              <span className="text-slate-600">·</span>
+              <span className="text-[#ff7b00]">{activeProfile.universe}</span>
+            </div>
 
-        {/* Top Badges & Commercial Pro CTA */}
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-mono-code">
-              <span className={`font-bold uppercase tracking-wider ${isSunsetNeon ? 'text-[#00f0ff]' : 'text-cyan-400'}`}>
-                JITALX · THE STREAMER COMMAND HUB
-              </span>
-              <span className="text-slate-600">/</span>
-              <span className="text-slate-300">
-                UNIVERS : <span className={`font-semibold ${isSunsetNeon ? 'text-[#ff7b00]' : 'text-cyan-300'}`}>{activeProfile.name}</span>
-              </span>
-              <span className="text-slate-600">/</span>
-              <span className="text-emerald-400 flex items-center gap-1 font-semibold">
-                MOTEUR LOCAL 0ms
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold font-hud text-white tracking-wide uppercase">
+                Progression Globale
+              </h1>
+              <span className="text-2xl sm:text-3xl font-bold font-mono-code text-[#00f0ff] tabular-nums">
+                {overallProgress}%
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-4xl font-bold font-hud text-white tracking-wide uppercase leading-tight">
-              CENTRE DE COMMANDEMENT · 100% COMPLETION
-            </h1>
-
-            <p className="text-slate-200 text-sm max-w-2xl leading-relaxed font-sans">
-              La suite de tracking ultime pour les joueurs exigeants. Cartographie Lidar temps réel,
-              journal de quêtes sans latence, optimisation d&apos;itinéraire et trophées synchronisés.
-            </p>
+            <div className="max-w-xl space-y-1.5">
+              <div className="h-2.5 w-full bg-[#090216] border border-[#ff2a85]/40 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#ff2a85] via-[#ff7b00] to-[#00f0ff] transition-all duration-500"
+                  style={{ width: `${overallProgress}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] font-mono-code text-slate-400 tabular-nums">
+                <span>
+                  {completedItems} / {totalItems} éléments complétés
+                </span>
+                <span>
+                  {inProgressMissions.length} mission{inProgressMissions.length > 1 ? 's' : ''} en cours
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Top Right Commercial CTA & Quick Action */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Quick Command Actions */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {onOpenStreamer && (
+              <button
+                type="button"
+                onClick={() => {
+                  cyberAudio.playChirp();
+                  onOpenStreamer();
+                }}
+                className="px-4 py-2.5 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_18px_rgba(255,42,133,0.35)] whitespace-nowrap"
+              >
+                <Video className="w-4 h-4" />
+                <span>Streamer Studio</span>
+              </button>
+            )}
+
             <button
+              type="button"
               onClick={() => {
-                cyberAudio.playChirp();
-                setShowCommercialModal(true);
+                cyberAudio.playClick();
+                setCurrentTab('map');
               }}
-              className={`px-4 py-2.5 font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
-                isSunsetNeon
-                  ? 'bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white shadow-[0_0_20px_rgba(255,42,133,0.4)]'
-                  : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.3)]'
-              }`}
+              className="px-4 py-2.5 bg-[#0b021a] hover:bg-[#1e0940] border border-[#00f0ff]/55 text-[#00f0ff] font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap"
             >
-              <Zap className="w-4 h-4 fill-current" />
-              <span>JITALX PRO · 7 €</span>
+              <Map className="w-4 h-4" />
+              <span>Carte du jeu</span>
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 cyberAudio.playClick();
                 onOpenNewItemModal();
               }}
-              className={`px-4 py-2.5 font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
-                isSunsetNeon
-                  ? 'bg-[#00f0ff] hover:bg-[#4ff6ff] text-[#120428] shadow-[0_0_20px_rgba(0,240,255,0.35)]'
-                  : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.35)]'
-              }`}
+              className="px-4 py-2.5 bg-[#00f0ff] hover:bg-[#4ff6ff] text-[#120428] font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>NOUVELLE ENTRÉE</span>
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>Ajouter</span>
             </button>
           </div>
         </div>
 
-        {/* 4 HUD Core Metric Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-cyan-950/80">
-          <div
+        {/* 4 Real KPI Tiles */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6 pt-5 border-t border-white/10">
+          <button
+            type="button"
             onClick={() => {
               cyberAudio.playClick();
-              setCurrentTab('missions');
+              openProgressionTab('missions');
             }}
-            className="p-4 bg-[#050912]/80 border border-slate-800/90 hover:border-cyan-500/50 transition-all cursor-pointer group"
+            className="text-left p-3.5 jitalx-panel-deep hover:border-[#00f0ff]/55 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-hud font-bold uppercase tracking-wider">Missions</span>
-              <Compass className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-hud font-bold uppercase">Missions</span>
+              <Compass className="w-4 h-4 text-[#00f0ff]" />
             </div>
-            <div className="text-2xl font-bold font-mono-code text-white">
+            <div className="text-2xl font-bold font-mono-code text-white tabular-nums">
               {stats.missionsDone}
               <span className="text-xs text-slate-500 font-normal"> / {stats.missionsTotal}</span>
             </div>
             <div className="w-full bg-slate-900 h-1.5 mt-2 overflow-hidden">
               <div
-                className="bg-cyan-400 h-full transition-all duration-500"
-                style={{
-                  width: `${(stats.missionsDone / (stats.missionsTotal || 1)) * 100}%`,
-                }}
+                className="bg-[#00f0ff] h-full transition-all duration-500"
+                style={{ width: `${(stats.missionsDone / (stats.missionsTotal || 1)) * 100}%` }}
               />
             </div>
-          </div>
+          </button>
 
-          <div
+          <button
+            type="button"
             onClick={() => {
               cyberAudio.playClick();
-              setCurrentTab('collectibles');
+              openProgressionTab('collectibles');
             }}
-            className="p-4 bg-[#050912]/80 border border-slate-800/90 hover:border-amber-500/50 transition-all cursor-pointer group"
+            className="text-left p-3.5 jitalx-panel-deep hover:border-amber-400/55 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-hud font-bold uppercase tracking-wider">Collectibles</span>
-              <Sparkles className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-hud font-bold uppercase">Collectibles</span>
+              <Sparkles className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-2xl font-bold font-mono-code text-white">
+            <div className="text-2xl font-bold font-mono-code text-white tabular-nums">
               {stats.collectiblesDone}
               <span className="text-xs text-slate-500 font-normal"> / {stats.collectiblesTotal}</span>
             </div>
@@ -205,20 +211,21 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
                 }}
               />
             </div>
-          </div>
+          </button>
 
-          <div
+          <button
+            type="button"
             onClick={() => {
               cyberAudio.playClick();
-              setCurrentTab('vehicles');
+              setCurrentTab('garage');
             }}
-            className="p-4 bg-[#050912]/80 border border-slate-800/90 hover:border-emerald-500/50 transition-all cursor-pointer group"
+            className="text-left p-3.5 jitalx-panel-deep hover:border-emerald-400/55 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-hud font-bold uppercase tracking-wider">Garage & Tuning</span>
-              <Car className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-hud font-bold uppercase">Véhicules possédés</span>
+              <Car className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-2xl font-bold font-mono-code text-white">
+            <div className="text-2xl font-bold font-mono-code text-white tabular-nums">
               {stats.vehiclesUnlocked}
               <span className="text-xs text-slate-500 font-normal"> / {stats.vehiclesTotal}</span>
             </div>
@@ -230,490 +237,403 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenLa
                 }}
               />
             </div>
-          </div>
+          </button>
 
-          <div
+          <button
+            type="button"
             onClick={() => {
               cyberAudio.playClick();
-              setCurrentTab('objectives');
+              openProgressionTab('objectives');
             }}
-            className="p-4 bg-[#050912]/80 border border-slate-800/90 hover:border-purple-500/50 transition-all cursor-pointer group"
+            className="text-left p-3.5 jitalx-panel-deep hover:border-[#ff2a85]/55 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-hud font-bold uppercase tracking-wider">Trophées & Succès</span>
-              <Trophy className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-hud font-bold uppercase">Trophées</span>
+              <Trophy className="w-4 h-4 text-[#ff7b00]" />
             </div>
-            <div className="text-2xl font-bold font-mono-code text-white">
+            <div className="text-2xl font-bold font-mono-code text-white tabular-nums">
               {stats.objectivesDone}
               <span className="text-xs text-slate-500 font-normal"> / {stats.objectivesTotal}</span>
             </div>
             <div className="w-full bg-slate-900 h-1.5 mt-2 overflow-hidden">
               <div
-                className="bg-purple-400 h-full transition-all duration-500"
+                className="bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] h-full transition-all duration-500"
                 style={{
                   width: `${(stats.objectivesDone / (stats.objectivesTotal || 1)) * 100}%`,
                 }}
               />
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 2. THE INÉDITE TOUCH: RADAR HOLOGRAPHIQUE TACTIQUE 360°                  */}
-      {/* ========================================================================= */}
-      <HoloRadar />
-
-      {/* ========================================================================= */}
-      {/* 3. NEURAL SPEEDRUN OPTIMIZER & DECK MODE TOGGLE                           */}
-      {/* ========================================================================= */}
-      <div className="bg-[#080d19] border border-cyan-950/80 p-5 shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-cyan-500/10 border border-cyan-500/40 text-cyan-400">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-hud font-bold text-base text-white uppercase tracking-wider">
-                  OPTIMISATEUR DE TRAJECTOIRE SPEEDRUN & 100%
-                </h3>
-                <span className="text-[10px] font-mono-code px-2 py-0.5 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 uppercase font-semibold">
-                  IA_ALGORITHME_V2
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Calcul automatique du rendement XP, crédits et estimation du temps restant jusqu’au Platine.
-              </p>
-            </div>
-          </div>
-
-          {/* Mode Streamer / Deck Companion Switch */}
-          <button
-            onClick={() => {
-              cyberAudio.playClick();
-              setCompanionDeckMode(!companionDeckMode);
-            }}
-            className={`px-3 py-1.5 text-xs font-mono-code flex items-center gap-2 border transition-all cursor-pointer ${
-              companionDeckMode
-                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
-                : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
-            }`}
-          >
-            <Monitor className="w-3.5 h-3.5" />
-            <span>MODE DECK STREAMER : {companionDeckMode ? 'ACTIF' : 'NORMAL'}</span>
           </button>
         </div>
 
-        {/* 3 Telemetry Pillars */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-          <div className="bg-[#050811] p-3.5 border border-slate-800/80">
-            <div className="text-[10px] font-mono-code uppercase text-slate-500 tracking-wider">
-              Temps Estimé Vers 100%
-            </div>
-            <div className="text-xl font-bold font-mono-code text-cyan-400 mt-1">
-              ~{estimatedHoursRemaining} HEURES
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Basé sur votre rythme actuel et les {remainingTasks} objectifs restants.
-            </p>
+        {!activeProfile.isCustom && (
+          <div className="mt-4 pt-3 border-t border-white/5 text-[11px] font-mono-code text-slate-400 flex items-center gap-2">
+            <Info className="w-3.5 h-3.5 text-[#00f0ff] shrink-0" />
+            <span>
+              Données de démonstration personnalisables ({activeProfile.universe}) — toutes les
+              entrées sont éditables ou supprimables.
+            </span>
           </div>
+        )}
+      </section>
 
-          <div className="bg-[#050811] p-3.5 border border-slate-800/80">
-            <div className="text-[10px] font-mono-code uppercase text-slate-500 tracking-wider">
-              Prochaine Action Haut Rendement
-            </div>
-            <div className="text-sm font-bold font-hud text-amber-400 mt-1 truncate">
-              {activeMission ? activeMission.title : 'Aucune mission restante'}
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Rapport : +{activeMission?.rewardXp || 0} XP &amp; +{activeMission?.rewardCredits || 0} Cr
-            </p>
-          </div>
-
-          <div className="bg-[#050811] p-3.5 border border-slate-800/80">
-            <div className="text-[10px] font-mono-code uppercase text-slate-500 tracking-wider">
-              Fiabilité &amp; Confidentialité
-            </div>
-            <div className="text-xl font-bold font-mono-code text-emerald-400 mt-1 flex items-center gap-1.5">
-              <ShieldCheck className="w-5 h-5 text-emerald-400" />
-              100% HORS-LIGNE
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Zéro pistage, données chiffrées en local, exportable à volonté.
-            </p>
-          </div>
-        </div>
-
-        {/* Dynamic Telemetry Graph: Real Progression vs Playtime */}
-        <div className="mt-4 pt-4 border-t border-slate-800/80">
-          <DashboardMiniTelemetryChart onNavigateToStats={() => setCurrentTab('stats')} />
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 4. MAIN WORKSPACE: ACTIVE MISSION & QUICK MODULES                         */}
-      {/* ========================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Active Mission Focus & Collectibles */}
-        <div className="lg:col-span-2 space-y-6">
-          {activeMission && (
-            <div className="bg-[#080d19] border border-cyan-950/80 p-5 shadow-lg relative overflow-hidden">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 text-[10px] font-mono-code uppercase font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
-                    MISSION ACTIVE PRIORITAIRE
-                  </span>
-                  <span className="text-xs font-mono-code text-slate-400">
-                    Secteur : {activeMission.district}
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    cyberAudio.playClick();
-                    setCurrentTab('missions');
-                  }}
-                  className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 font-hud cursor-pointer"
-                >
-                  <span>TOUT VOIR</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <h2 className="text-xl font-bold font-hud text-white mb-2">{activeMission.title}</h2>
-              <p className="text-slate-300 text-sm mb-4 leading-relaxed font-sans">
-                {activeMission.description}
-              </p>
-
-              {/* Steps / Sub-objectives */}
-              <div className="space-y-2 mb-4 bg-[#050811] p-3 border border-slate-800/80">
-                <div className="text-[11px] font-mono-code uppercase text-slate-400 tracking-wider">
-                  Objectifs tactiques :
-                </div>
-                {activeMission.steps.map((step) => (
-                  <div
-                    key={step.id}
-                    onClick={() => {
-                      cyberAudio.playClick();
-                      toggleMissionStep(activeMission.id, step.id);
-                    }}
-                    className="flex items-center gap-3 p-2 hover:bg-slate-800/40 cursor-pointer transition-colors"
-                  >
-                    {step.completed ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-slate-600 flex-shrink-0 hover:text-cyan-400" />
-                    )}
-                    <span
-                      className={`text-sm ${
-                        step.completed
-                          ? 'line-through text-slate-500'
-                          : 'text-slate-200 font-medium'
-                      }`}
-                    >
-                      {step.text}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Rewards */}
-              <div className="flex items-center justify-between text-xs font-mono-code text-slate-400 pt-2 border-t border-slate-800/60">
-                <div>
-                  Donneur d’ordre : <span className="text-slate-200">{activeMission.giver}</span>
-                </div>
-                <div className="flex items-center gap-3 text-cyan-400 font-semibold">
-                  <span>+{activeMission.rewardXp} XP</span>
-                  <span className="text-amber-400">+{activeMission.rewardCredits} Cr</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Quick Collectibles Tracker */}
-          <div className="bg-[#080d19] border border-cyan-950/80 p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <h3 className="font-hud font-bold text-white text-base uppercase tracking-wider">
-                  COLLECTIBLES À PROXIMITÉ
-                </h3>
+      {/* 2. COLONNES OPÉRATIONNELLES : MISSIONS, OBJECTIFS, COLLECTIBLES + GARAGE, ACTIVITÉS, NOTES */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT 8 COLS */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Active Mission */}
+          <div className="jitalx-panel p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2 text-xs font-mono-code">
+                <Compass className="w-4 h-4 text-[#ff2a85]" />
+                <span className="font-hud font-bold text-white uppercase tracking-wider text-sm">
+                  Mission en cours
+                </span>
+                {activeMission && (
+                  <>
+                    <span className="text-slate-600">·</span>
+                    <span className="text-slate-400">{activeMission.district}</span>
+                  </>
+                )}
               </div>
               <button
+                type="button"
                 onClick={() => {
                   cyberAudio.playClick();
-                  setCurrentTab('collectibles');
+                  openProgressionTab('missions');
                 }}
-                className="text-xs text-amber-400 hover:text-amber-300 font-hud flex items-center gap-1 cursor-pointer"
+                className="text-xs text-[#00f0ff] hover:underline font-hud font-bold uppercase flex items-center gap-1 cursor-pointer"
               >
-                <span>VOIR LA CARTE ({stats.collectiblesTotal - stats.collectiblesDone} RESTANTS)</span>
+                <span>Toutes les missions</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {nextCollectibles.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-3 bg-[#050811] border border-slate-800 hover:border-amber-500/40 transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-1 mb-1.5">
-                      <span className="text-[10px] font-mono-code px-1.5 py-0.5 bg-amber-500/10 text-amber-300 border border-amber-500/30 uppercase">
-                        {item.category}
-                      </span>
-                      <span className="text-[11px] font-mono-code text-slate-400 flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-rose-400" />
-                        {item.district}
-                      </span>
-                    </div>
-                    <div className="font-semibold text-sm text-slate-100">{item.name}</div>
-                    <p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.hint}</p>
-                  </div>
+            {activeMission ? (
+              <div className="space-y-3">
+                <div>
+                  <h2 className="text-xl font-bold font-hud text-white">{activeMission.title}</h2>
+                  <p className="text-sm text-slate-300 mt-1 leading-relaxed">
+                    {activeMission.description}
+                  </p>
+                </div>
 
-                  <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                    <span className="text-[10px] font-mono-code text-slate-500">
-                      {item.coordinates || 'GPS Actif'}
-                    </span>
+                <div className="space-y-1.5 jitalx-panel-deep p-3">
+                  {activeMission.steps.map((step) => (
                     <button
+                      key={step.id}
+                      type="button"
+                      onClick={() => {
+                        cyberAudio.playClick();
+                        toggleMissionStep(activeMission.id, step.id);
+                      }}
+                      className="w-full text-left flex items-center gap-3 p-2 hover:bg-white/5 cursor-pointer transition-colors"
+                    >
+                      {step.completed ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-slate-500 shrink-0" />
+                      )}
+                      <span
+                        className={`text-sm ${
+                          step.completed ? 'line-through text-slate-500' : 'text-slate-100'
+                        }`}
+                      >
+                        {step.text}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono-code text-slate-400">
+                  <span>Contact : {activeMission.giver}</span>
+                  <span className="text-[#00f0ff] tabular-nums">
+                    +{activeMission.rewardXp} XP · +{activeMission.rewardCredits} Cr
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 jitalx-panel-deep text-xs text-slate-400">
+                Aucune mission enregistrée. Ajoutez votre première mission pour démarrer le suivi.
+              </div>
+            )}
+          </div>
+
+          {/* Priority Objectives & Trophies */}
+          <div className="jitalx-panel p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-[#ff7b00]" />
+                <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
+                  Objectifs prioritaires &amp; Trophées
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  cyberAudio.playClick();
+                  openProgressionTab('objectives');
+                }}
+                className="text-xs text-[#00f0ff] hover:underline font-hud font-bold uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <span>Gérer ({unlockedObjectives.length}/{objectives.length})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {priorityObjectives.length === 0 ? (
+              <div className="p-3.5 jitalx-panel-deep text-xs text-emerald-300 font-mono-code flex items-center gap-2">
+                <Award className="w-4 h-4 shrink-0" />
+                <span>Tous les objectifs actuellement configurés sont débloqués.</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {priorityObjectives.map((obj) => {
+                  const pct = Math.round((obj.progress / (obj.maxProgress || 1)) * 100);
+                  return (
+                    <div key={obj.id} className="p-3.5 jitalx-panel-deep space-y-2">
+                      <div className="text-[11px] font-mono-code text-slate-400 flex items-center justify-between">
+                        <span className="uppercase">{obj.tier}</span>
+                        <span className="text-[#00f0ff] tabular-nums">
+                          {obj.progress}/{obj.maxProgress}
+                        </span>
+                      </div>
+                      <div className="font-hud font-bold text-sm text-white leading-snug">
+                        {obj.title}
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-900 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-[#ff2a85] to-[#ff7b00]"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Collectibles Remaining */}
+          <div className="jitalx-panel p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
+                  Collectibles restants ({stats.collectiblesTotal - stats.collectiblesDone})
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  cyberAudio.playClick();
+                  openProgressionTab('collectibles');
+                }}
+                className="text-xs text-amber-300 hover:underline font-hud font-bold uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <span>Catalogue complet</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {nextCollectibles.length === 0 ? (
+              <div className="p-3.5 jitalx-panel-deep text-xs text-emerald-300 font-mono-code">
+                Tous les collectibles de ce profil sont validés.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {nextCollectibles.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-3.5 jitalx-panel-deep flex flex-col justify-between gap-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-mono-code text-slate-400 flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3 text-[#ff2a85] shrink-0" />
+                        <span className="truncate">{item.district}</span>
+                      </div>
+                      <div className="font-hud font-bold text-sm text-white leading-snug">
+                        {item.name}
+                      </div>
+                      <p className="text-xs text-slate-400 line-clamp-2">{item.hint}</p>
+                    </div>
+                    <button
+                      type="button"
                       onClick={() => {
                         cyberAudio.playFanfare();
                         toggleCollectible(item.id);
                       }}
-                      className="text-xs font-hud font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                      className="w-full py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/45 text-amber-300 text-xs font-hud font-bold uppercase flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>VALIDER</span>
+                      <span>Marquer obtenu</span>
                     </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Col: Active Vehicle & Pinned Notes */}
-        <div className="space-y-6">
-          {/* Favorite Vehicle Showcase */}
-          {favoriteVehicle && (
-            <div className="bg-[#080d19] border border-cyan-950/80 p-5 shadow-lg">
-              <div className="flex items-center justify-between mb-3">
+        {/* RIGHT 4 COLS: VISUAL FEATURED VEHICLE, RECENT ACTIVITY, PINNED NOTES */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Featured Vehicle from Visual Garage */}
+          {featuredVehicle && (
+            <div className="jitalx-panel overflow-hidden">
+              <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Car className="w-4 h-4 text-emerald-400" />
-                  <h3 className="font-hud font-bold text-white text-base uppercase tracking-wider">
-                    VÉHICULE EN SERVICE
-                  </h3>
+                  <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
+                    Garage · Véhicule vedette
+                  </h2>
                 </div>
                 <button
+                  type="button"
                   onClick={() => {
                     cyberAudio.playClick();
-                    setCurrentTab('vehicles');
+                    setCurrentTab('garage');
                   }}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 font-hud cursor-pointer"
+                  className="text-xs text-emerald-400 hover:underline font-hud font-bold uppercase cursor-pointer"
                 >
-                  GARAGE
+                  Ouvrir
                 </button>
               </div>
 
-              <div className="p-3.5 bg-[#050811] border border-slate-800">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] font-mono-code text-slate-400 uppercase">
-                      {favoriteVehicle.manufacturer}
-                    </span>
-                    <h4 className="font-hud font-bold text-base text-white">
-                      {favoriteVehicle.name}
-                    </h4>
+              <div className="relative aspect-[4/3] w-full bg-[#090216] overflow-hidden">
+                <img
+                  src={featuredVehicleSrc}
+                  alt={featuredVehicle.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0b021a] via-[#0b021a]/70 to-transparent p-4">
+                  <div className="text-[11px] font-mono-code text-slate-300">
+                    {featuredVehicle.manufacturer} · {VEHICLE_CATEGORY_LABELS[featuredVehicle.category]}
                   </div>
-                  <span className="text-xs px-2 py-0.5 font-mono-code bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 uppercase">
-                    {favoriteVehicle.category}
+                  <div className="font-hud font-bold text-lg text-white">
+                    {featuredVehicle.name}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-2.5 text-xs font-mono-code">
+                <div className="flex items-center justify-between text-slate-300">
+                  <span>Vitesse / Maniabilité / Blindage</span>
+                  <span className="text-[#00f0ff] tabular-nums">
+                    {featuredVehicle.speed} · {featuredVehicle.handling} · {featuredVehicle.armor}
                   </span>
                 </div>
-
-                <div className="space-y-2 mt-4">
-                  <div>
-                    <div className="flex justify-between text-[11px] font-mono-code text-slate-400 mb-0.5">
-                      <span>Vitesse de pointe</span>
-                      <span className="text-cyan-400 font-bold">{favoriteVehicle.speed}/100</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-900 overflow-hidden">
-                      <div
-                        className="h-full bg-cyan-400"
-                        style={{ width: `${favoriteVehicle.speed}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-[11px] font-mono-code text-slate-400 mb-0.5">
-                      <span>Maniabilité</span>
-                      <span className="text-emerald-400 font-bold">{favoriteVehicle.handling}/100</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-900 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-400"
-                        style={{ width: `${favoriteVehicle.handling}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 text-[11px] text-slate-400 flex items-center gap-1.5 font-mono-code">
-                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                  <span>{favoriteVehicle.location}</span>
+                <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#ff2a85] shrink-0" />
+                  <span className="truncate">{featuredVehicle.location}</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Quick Tactical Notes */}
-          <div className="bg-[#080d19] border border-cyan-950/80 p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-3">
+          {/* Real Recent Activity Log */}
+          <div className="jitalx-panel p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
               <div className="flex items-center gap-2">
-                <Pin className="w-4 h-4 text-cyan-400" />
-                <h3 className="font-hud font-bold text-white text-base uppercase tracking-wider">
-                  NOTES PRIORITAIRES
-                </h3>
+                <Clock className="w-4 h-4 text-[#00f0ff]" />
+                <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
+                  Dernières activités
+                </h2>
+              </div>
+              <span className="text-[11px] font-mono-code text-slate-400 tabular-nums">
+                {activityLog.length}
+              </span>
+            </div>
+
+            {activityLog.length === 0 ? (
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Vos actions récentes (missions validées, collectibles cochés, véhicules débloqués,
+                repères carte) apparaîtront ici en direct.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                {activityLog.slice(0, 6).map((act) => (
+                  <div
+                    key={act.id}
+                    className="p-2.5 jitalx-panel-deep flex items-start justify-between gap-2 text-xs"
+                  >
+                    <span className="text-slate-200 leading-snug">{act.label}</span>
+                    <span className="text-[10px] font-mono-code text-slate-500 shrink-0 tabular-nums">
+                      {act.timestamp.replace("Aujourd'hui, ", '')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Pinned Notes */}
+          <div className="jitalx-panel p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Pin className="w-4 h-4 text-[#ff7b00]" />
+                <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
+                  Notes épinglées
+                </h2>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   cyberAudio.playClick();
                   setCurrentTab('notes');
                 }}
-                className="text-xs text-cyan-400 hover:text-cyan-300 font-hud cursor-pointer"
+                className="text-xs text-[#00f0ff] hover:underline font-hud font-bold uppercase cursor-pointer"
               >
-                BLOC-NOTES
+                Notes
               </button>
             </div>
 
-            <div className="space-y-2.5">
-              {pinnedNotes.map((note) => (
-                <div
-                  key={note.id}
-                  onClick={() => {
-                    cyberAudio.playClick();
-                    setCurrentTab('notes');
-                  }}
-                  className="p-3 bg-[#050811] border border-slate-800 hover:border-cyan-500/40 transition-colors cursor-pointer"
-                >
-                  <div className="font-semibold text-xs text-cyan-300 mb-1">{note.title}</div>
-                  <p className="text-xs text-slate-300 line-clamp-2 font-mono-code whitespace-pre-line">
-                    {note.content}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {pinnedNotes.length === 0 ? (
+              <p className="text-xs text-slate-400">Aucune note épinglée.</p>
+            ) : (
+              <div className="space-y-2">
+                {pinnedNotes.map((note) => (
+                  <button
+                    key={note.id}
+                    type="button"
+                    onClick={() => {
+                      cyberAudio.playClick();
+                      setCurrentTab('notes');
+                    }}
+                    className="w-full text-left p-2.5 jitalx-panel-deep hover:border-[#00f0ff]/45 transition-colors cursor-pointer"
+                  >
+                    <div className="font-semibold text-xs text-[#00f0ff] mb-0.5">{note.title}</div>
+                    <p className="text-xs text-slate-300 line-clamp-2 font-mono-code whitespace-pre-line">
+                      {note.content}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 5. COMMERCIAL PRO EDITION SALES MODAL                                      */}
-      {/* ========================================================================= */}
-      {showCommercialModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-2xl bg-[#160631] border-2 border-[#ff2a85]/70 p-6 sm:p-8 shadow-[0_0_50px_rgba(255,42,133,0.3)] space-y-6">
-            {/* Header */}
-            <div className="flex items-start justify-between border-b border-[#ff2a85]/30 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 text-[10px] font-mono-code font-bold uppercase bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] text-white">
-                    OFFRE DE LANCEMENT · 7 € À VIE
-                  </span>
-                  <span className="text-xs font-mono-code text-[#00f0ff]">JITALX PRO</span>
-                </div>
-                <h3 className="text-2xl font-bold font-hud text-white mt-1">
-                  JITALX FULL ACCESS · THE STREAMER COMMAND HUB
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowCommercialModal(false)}
-                className="text-slate-400 hover:text-white p-1 cursor-pointer font-mono-code text-sm"
-              >
-                [FERMER ✕]
-              </button>
-            </div>
-
-            {/* Commercial Features List */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-3.5 bg-[#120428] border border-[#ff2a85]/25">
-                <div className="flex items-center gap-2 text-[#00f0ff] font-hud font-bold text-sm mb-1">
-                  <Zap className="w-4 h-4" />
-                  <span>Zéro Latence &amp; Hors-Ligne</span>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Fonctionne instantanément sur PC, Mac, Steam Deck, Android et iOS sans serveur ni abonnement tiers.
-                </p>
-              </div>
-
-              <div className="p-3.5 bg-[#120428] border border-[#ff2a85]/25">
-                <div className="flex items-center gap-2 text-[#ff7b00] font-hud font-bold text-sm mb-1">
-                  <Radio className="w-4 h-4" />
-                  <span>Radar Holo 360° &amp; Synth Audio</span>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Immersion sonore procédurale et détection de portée qui captivent le joueur dès la première seconde.
-                </p>
-              </div>
-
-              <div className="p-3.5 bg-[#120428] border border-[#ff2a85]/25">
-                <div className="flex items-center gap-2 text-[#ff2a85] font-hud font-bold text-sm mb-1">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Multi-Univers &amp; Sauvegardes JSON</span>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Supporte Sunset Néon, Secteur Cyber ou n&apos;importe quel monde ouvert personnalisé avec export/import 1 clic.
-                </p>
-              </div>
-
-              <div className="p-3.5 bg-[#120428] border border-[#ff2a85]/25">
-                <div className="flex items-center gap-2 text-[#00f0ff] font-hud font-bold text-sm mb-1">
-                  <Trophy className="w-4 h-4" />
-                  <span>Overlay OBS &amp; Trophées HUD</span>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Overlay Chroma Key / Transparent 16:9 &amp; 9:16 pour Twitch, YouTube et TikTok Live + alertes de trophées.
-                </p>
-              </div>
-            </div>
-
-            {/* Bottom Guarantee */}
-            <div className="p-4 bg-[#ff2a85]/10 border border-[#ff2a85]/35 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <div className="text-xs font-hud font-bold text-[#ff7b00] uppercase">
-                  Offre de lancement · 7 € accès à vie
-                </div>
-                <div className="text-xs text-slate-200">
-                  Synchronisation Cloud Firebase, profils personnalisés, overlay OBS complet et mises à jour incluses.
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {onOpenLanding && (
-                  <button
-                    onClick={() => {
-                      cyberAudio.playChirp();
-                      setShowCommercialModal(false);
-                      onOpenLanding();
-                    }}
-                    className="px-4 py-2 bg-[#00f0ff] hover:bg-[#5ef6ff] text-[#120428] font-hud font-bold text-xs uppercase cursor-pointer transition-all shadow-[0_0_12px_rgba(0,240,255,0.35)]"
-                  >
-                    VOIR LES FORMULES
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    cyberAudio.playFanfare();
-                    setShowCommercialModal(false);
-                  }}
-                  className="px-4 py-2 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase cursor-pointer"
-                >
-                  CONTINUER
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* 3. RADAR TACTIQUE 360° (COMPOSANT SÉPARÉ DE LA GRANDE CARTE) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-mono-code uppercase tracking-wider text-slate-400">
+            Radar de proximité 360° (distinct de la Grande Carte)
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              cyberAudio.playClick();
+              setCurrentTab('map');
+            }}
+            className="text-xs font-hud font-bold uppercase text-[#00f0ff] hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <Map className="w-3.5 h-3.5" />
+            <span>Ouvrir la Grande Carte Interactive</span>
+          </button>
         </div>
-      )}
+        <HoloRadar />
+      </div>
     </div>
   );
 };

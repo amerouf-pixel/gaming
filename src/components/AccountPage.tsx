@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { AppRoute, StreamPlatform, UniverseTheme } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGame } from '../context/GameContext';
-import { SUBSCRIPTION_PLANS, isStripeConfigured, STRIPE_CONFIG } from '../services/stripeConfig';
+import {
+  GUMROAD_PRODUCT_URL,
+  SUBSCRIPTION_PLANS,
+  isStripeConfigured,
+  STRIPE_CONFIG,
+} from '../services/stripeConfig';
 import { cyberAudio } from '../utils/cyberAudio';
 import { CommercialNav } from './CommercialNav';
 import {
@@ -16,13 +21,20 @@ import {
   Plus,
   CreditCard,
   CheckCircle2,
+  AlertTriangle,
   Gamepad2,
   ArrowRight,
   Save,
+  ExternalLink,
 } from 'lucide-react';
 
 interface AccountPageProps {
   onNavigate: (route: AppRoute) => void;
+}
+
+interface ActionFeedback {
+  type: 'success' | 'error';
+  text: string;
 }
 
 export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
@@ -32,6 +44,8 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
     isAuthReady,
     isSigningIn,
     authError,
+    cloudError,
+    clearCloudError,
     customProfiles,
     cloudSnapshots,
     signInWithGoogle,
@@ -65,7 +79,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
   const [streamChannel, setStreamChannel] = useState('');
   const [streamPlatform, setStreamPlatform] = useState<StreamPlatform>('twitch');
   const [preferredTheme, setPreferredTheme] = useState<UniverseTheme>('sunset-neon');
-  const [profileFeedback, setProfileFeedback] = useState<string | null>(null);
+  const [profileFeedback, setProfileFeedback] = useState<ActionFeedback | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
 
   // New Custom Universe Profile Form
@@ -75,10 +89,11 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
   const [newProfTheme, setNewProfTheme] = useState<UniverseTheme>('sunset-neon');
   const [newProfIcon, setNewProfIcon] = useState<'Sun' | 'Zap' | 'Flame' | 'Gamepad2'>('Sun');
   const [creatingProfile, setCreatingProfile] = useState(false);
+  const [customProfileFeedback, setCustomProfileFeedback] = useState<ActionFeedback | null>(null);
 
-  // Cloud Sync state
+  // Cloud Snapshots state
   const [syncingCloud, setSyncingCloud] = useState(false);
-  const [cloudMessage, setCloudMessage] = useState<string | null>(null);
+  const [cloudFeedback, setCloudFeedback] = useState<ActionFeedback | null>(null);
 
   useEffect(() => {
     if (account) {
@@ -99,84 +114,139 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
     if (!user) return;
     setSavingProfile(true);
     setProfileFeedback(null);
-    try {
-      await updateAccountProfile({
-        displayName,
-        gamerTag,
-        streamChannel,
-        streamPlatform,
-        preferredTheme,
-      });
+    const result = await updateAccountProfile({
+      displayName,
+      gamerTag,
+      streamChannel,
+      streamPlatform,
+      preferredTheme,
+    });
+    if (result.ok) {
       cyberAudio.playFanfare();
-      setProfileFeedback('Profil enregistré et synchronisé dans Firestore.');
-    } catch {
-      setProfileFeedback('Erreur lors de la sauvegarde du profil.');
-    } finally {
-      setSavingProfile(false);
+      setProfileFeedback({
+        type: 'success',
+        text: 'Profil enregistré dans Firestore pour votre compte.',
+      });
+    } else {
+      setProfileFeedback({
+        type: 'error',
+        text: result.error || 'Erreur lors de la sauvegarde du profil.',
+      });
     }
+    setSavingProfile(false);
   };
 
   const handleCreateGameProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProfName.trim() || !newProfUniverse.trim()) return;
     setCreatingProfile(true);
-    try {
-      if (user) {
-        const created = await createCustomProfile({
-          name: newProfName.trim(),
-          universe: newProfUniverse.trim(),
-          playerTag: newProfTag.trim() || 'Runner_01',
-          avatarIcon: newProfIcon,
-          theme: newProfTheme,
+    setCustomProfileFeedback(null);
+
+    if (user) {
+      const result = await createCustomProfile({
+        name: newProfName.trim(),
+        universe: newProfUniverse.trim(),
+        playerTag: newProfTag.trim() || 'Runner_01',
+        avatarIcon: newProfIcon,
+        theme: newProfTheme,
+      });
+      if (result.ok && result.profile) {
+        setActiveProfile(result.profile);
+        cyberAudio.playChirp();
+        setNewProfName('');
+        setNewProfUniverse('');
+        setCustomProfileFeedback({
+          type: 'success',
+          text: `Profil "${result.profile.name}" créé dans votre espace Cloud.`,
         });
-        if (created) {
-          setActiveProfile(created);
-        }
       } else {
-        const localCreated = addLocalCustomProfile({
-          name: newProfName.trim(),
-          universe: newProfUniverse.trim(),
-          playerTag: newProfTag.trim() || 'Runner_01',
-          avatarIcon: newProfIcon,
-          theme: newProfTheme,
+        setCustomProfileFeedback({
+          type: 'error',
+          text: result.error || 'Impossible de créer le profil Cloud.',
         });
-        setActiveProfile(localCreated);
       }
+    } else {
+      const localCreated = addLocalCustomProfile({
+        name: newProfName.trim(),
+        universe: newProfUniverse.trim(),
+        playerTag: newProfTag.trim() || 'Runner_01',
+        avatarIcon: newProfIcon,
+        theme: newProfTheme,
+      });
+      setActiveProfile(localCreated);
       cyberAudio.playChirp();
       setNewProfName('');
       setNewProfUniverse('');
-    } finally {
-      setCreatingProfile(false);
+      setCustomProfileFeedback({
+        type: 'success',
+        text: `Profil local "${localCreated.name}" créé et activé.`,
+      });
+    }
+
+    setCreatingProfile(false);
+  };
+
+  const handleDeleteGameProfile = async (profileId: string, isCloudCustom: boolean) => {
+    setCustomProfileFeedback(null);
+    if (isCloudCustom && user) {
+      const res = await deleteCustomProfile(profileId);
+      if (!res.ok) {
+        setCustomProfileFeedback({
+          type: 'error',
+          text: res.error || 'Impossible de supprimer ce profil Cloud.',
+        });
+        return;
+      }
+      setCustomProfileFeedback({ type: 'success', text: 'Profil Cloud supprimé.' });
+    } else {
+      removeLocalCustomProfile(profileId);
+      setCustomProfileFeedback({ type: 'success', text: 'Profil local supprimé.' });
     }
   };
 
   const handleCloudBackup = async () => {
     if (!user) return;
     setSyncingCloud(true);
-    setCloudMessage(null);
-    try {
-      const ok = await saveCloudSnapshot({
-        profileId: activeProfile.id,
-        profileName: activeProfile.name,
-        overallProgress,
-        missionsDone: stats.missionsDone,
-        missionsTotal: stats.missionsTotal,
-        collectiblesDone: stats.collectiblesDone,
-        collectiblesTotal: stats.collectiblesTotal,
-        missions,
-        collectibles,
-        vehicles,
-        objectives,
-        notes,
+    setCloudFeedback(null);
+    const result = await saveCloudSnapshot({
+      profileId: activeProfile.id,
+      profileName: activeProfile.name,
+      overallProgress,
+      missionsDone: stats.missionsDone,
+      missionsTotal: stats.missionsTotal,
+      collectiblesDone: stats.collectiblesDone,
+      collectiblesTotal: stats.collectiblesTotal,
+      missions,
+      collectibles,
+      vehicles,
+      objectives,
+      notes,
+    });
+    if (result.ok) {
+      cyberAudio.playFanfare();
+      setCloudFeedback({
+        type: 'success',
+        text: `Snapshot "${activeProfile.name}" (${overallProgress}%) enregistré dans Firestore.`,
       });
-      if (ok) {
-        cyberAudio.playFanfare();
-        setCloudMessage('Instantané de progression sauvegardé sur votre espace cloud.');
-      }
-    } catch {
-      setCloudMessage('Impossible de sauvegarder sur le cloud pour le moment.');
-    } finally {
-      setSyncingCloud(false);
+    } else {
+      setCloudFeedback({
+        type: 'error',
+        text: result.error || 'Échec de la sauvegarde Cloud.',
+      });
+    }
+    setSyncingCloud(false);
+  };
+
+  const handleDeleteSnapshot = async (snapshotId: string) => {
+    setCloudFeedback(null);
+    const result = await deleteCloudSnapshot(snapshotId);
+    if (result.ok) {
+      setCloudFeedback({ type: 'success', text: 'Snapshot supprimé du Cloud.' });
+    } else {
+      setCloudFeedback({
+        type: 'error',
+        text: result.error || 'Impossible de supprimer ce snapshot.',
+      });
     }
   };
 
@@ -185,14 +255,13 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
       <CommercialNav activeRoute="account" onNavigate={onNavigate} />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ff2a85]/25 pb-6">
           <div>
             <div className="text-xs font-mono-code text-[#00f0ff] uppercase tracking-widest">
-              Espace Membre · Profils · Abonnement
+              Espace Membre · Profils · Snapshots Cloud
             </div>
             <h1 className="text-3xl font-hud font-bold text-white mt-1">
-              Compte &amp; Synchronisation JITALX
+              Compte &amp; Sauvegardes Cloud JITALX
             </h1>
           </div>
 
@@ -216,21 +285,36 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
+        {cloudError && (
+          <div className="p-3.5 bg-rose-950/60 border border-rose-500/60 text-xs font-mono-code text-rose-200 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{cloudError}</span>
+            </div>
+            <button
+              onClick={clearCloudError}
+              className="text-rose-300 hover:text-white underline cursor-pointer shrink-0"
+            >
+              Fermer
+            </button>
+          </div>
+        )}
+
         {/* Auth Panel when Signed Out */}
         {isAuthReady && !user && (
           <div className="bg-[#180633] border border-[#ff2a85]/45 p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-2xl">
               <div className="flex items-center gap-2 text-[#00f0ff] text-xs font-mono-code uppercase">
                 <ShieldCheck className="w-4 h-4" />
-                <span>Authentification sécurisée Firebase</span>
+                <span>Authentification Firebase · Isolation par UID</span>
               </div>
               <h2 className="text-2xl font-hud font-bold text-white">
-                Connectez-vous pour synchroniser vos profils et votre abonnement
+                Connectez-vous pour enregistrer vos profils et snapshots dans le Cloud
               </h2>
               <p className="text-sm text-slate-300 leading-relaxed">
-                Votre compte Google crée automatiquement un espace privé protégé dans Firestore
-                pour sauvegarder vos profils de jeu, vos instantanés de progression et gérer vos
-                formules d&apos;abonnement.
+                Votre compte Google crée un espace privé dans Firestore (strictement isolé par
+                identifiant utilisateur) pour sauvegarder manuellement des snapshots de votre
+                progression et synchroniser vos profils personnalisés.
               </p>
               {authError && (
                 <p className="text-xs font-mono-code text-rose-300 bg-rose-950/50 border border-rose-500/40 p-2.5">
@@ -250,11 +334,9 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
           </div>
         )}
 
-        {/* Main 2-Column Account Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left 7 cols: Account Profile & Cloud Sync */}
+          {/* Left 7 cols: Account Profile & Game Universe Profiles */}
           <div className="lg:col-span-7 space-y-6">
-            {/* Authenticated Profile Settings */}
             <div className="bg-[#180633] border border-[#ff2a85]/30 p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-[#ff2a85]/20 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -264,7 +346,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                   </h2>
                 </div>
                 {user && (
-                  <span className="text-xs font-mono-code text-emerald-400">
+                  <span className="text-xs font-mono-code text-emerald-400 truncate max-w-[200px]">
                     {user.email}
                   </span>
                 )}
@@ -356,8 +438,19 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                   </div>
 
                   {profileFeedback && (
-                    <div className="text-xs font-mono-code text-[#00f0ff] bg-[#0e0320] border border-[#00f0ff]/40 p-2.5">
-                      {profileFeedback}
+                    <div
+                      className={`text-xs font-mono-code p-2.5 border flex items-center gap-2 ${
+                        profileFeedback.type === 'success'
+                          ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300'
+                          : 'bg-rose-950/50 border-rose-500/50 text-rose-200'
+                      }`}
+                    >
+                      {profileFeedback.type === 'success' ? (
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                      )}
+                      <span>{profileFeedback.text}</span>
                     </div>
                   )}
 
@@ -372,18 +465,18 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                 </form>
               ) : (
                 <p className="text-sm text-slate-400">
-                  Connectez-vous avec Google ci-dessus pour personnaliser votre profil cloud.
+                  Connectez-vous avec Google ci-dessus pour personnaliser votre profil Cloud.
                 </p>
               )}
             </div>
 
-            {/* Game Universe Profiles Manager (Works both Local & Cloud-Synced!) */}
+            {/* Game Universe Profiles Manager */}
             <div className="bg-[#180633] border border-[#ff2a85]/30 p-6 space-y-5">
               <div className="flex items-center justify-between border-b border-[#ff2a85]/20 pb-3">
                 <div className="flex items-center gap-2.5">
                   <Gamepad2 className="w-5 h-5 text-[#ff7b00]" />
                   <h2 className="font-hud font-bold text-lg text-white">
-                    Gestion des Profils &amp; Univers de Jeu
+                    Profils &amp; Univers de Jeu
                   </h2>
                 </div>
                 <span className="text-xs font-mono-code text-slate-400">
@@ -415,7 +508,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                           {p.name}
                         </div>
                         <div className="text-xs font-mono-code text-slate-400 truncate">
-                          {p.universe} · {p.playerTag}
+                          {p.universe} · {p.isCustom ? (isCloudCustom ? 'Cloud' : 'Local') : 'Démo'}
                         </div>
                       </button>
 
@@ -427,13 +520,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                         )}
                         {p.isCustom && (
                           <button
-                            onClick={() => {
-                              if (isCloudCustom && user) {
-                                void deleteCustomProfile(p.id);
-                              } else {
-                                removeLocalCustomProfile(p.id);
-                              }
-                            }}
+                            onClick={() => void handleDeleteGameProfile(p.id, isCloudCustom)}
                             className="p-1.5 text-slate-400 hover:text-rose-400 cursor-pointer"
                             title="Supprimer ce profil personnalisé"
                           >
@@ -446,13 +533,29 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                 })}
               </div>
 
-              {/* Create Custom Universe Form */}
+              {customProfileFeedback && (
+                <div
+                  className={`text-xs font-mono-code p-2.5 border flex items-center gap-2 ${
+                    customProfileFeedback.type === 'success'
+                      ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300'
+                      : 'bg-rose-950/50 border-rose-500/50 text-rose-200'
+                  }`}
+                >
+                  {customProfileFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                  )}
+                  <span>{customProfileFeedback.text}</span>
+                </div>
+              )}
+
               <form
                 onSubmit={handleCreateGameProfile}
                 className="pt-4 border-t border-[#ff2a85]/20 space-y-3"
               >
                 <div className="text-xs font-mono-code text-[#00f0ff] uppercase">
-                  Créer un nouveau profil de jeu ({user ? 'synchronisé cloud' : 'local'})
+                  Créer un profil personnalisé ({user ? 'stocké dans votre compte Cloud' : 'stocké en local'})
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
@@ -461,7 +564,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                     maxLength={60}
                     value={newProfName}
                     onChange={(e) => setNewProfName(e.target.value)}
-                    placeholder="Nom du profil (ex: GTA 6 — Run 100%)"
+                    placeholder="Nom du profil (ex: Run 100% Open-World)"
                     className="bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-xs text-white placeholder-slate-500"
                   />
                   <input
@@ -470,7 +573,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                     maxLength={60}
                     value={newProfUniverse}
                     onChange={(e) => setNewProfUniverse(e.target.value)}
-                    placeholder="Univers / Campagne (ex: Campagne Principale)"
+                    placeholder="Campagne / Jeu (ex: Campagne Principale)"
                     className="bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-xs text-white placeholder-slate-500"
                   />
                 </div>
@@ -508,7 +611,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                 <button
                   type="submit"
                   disabled={creatingProfile}
-                  className="px-4 py-2 bg-[#ff2a85]/20 hover:bg-[#ff2a85]/35 border border-[#ff2a85]/60 text-white text-xs font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 bg-[#ff2a85]/20 hover:bg-[#ff2a85]/35 border border-[#ff2a85]/60 text-white text-xs font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{creatingProfile ? 'Création...' : 'Ajouter le profil'}</span>
@@ -517,86 +620,94 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
             </div>
           </div>
 
-          {/* Right 5 cols: Subscription / Stripe Billing & Cloud Snapshots */}
+          {/* Right 5 cols: Access / Gumroad & Manual Cloud Snapshots */}
           <div className="lg:col-span-5 space-y-6">
-            {/* Subscription & Stripe Management */}
             <div className="bg-[#180633] border border-[#ff2a85]/35 p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-[#ff2a85]/20 pb-3">
                 <div className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-[#ff7b00]" />
-                  <h2 className="font-hud font-bold text-lg text-white">Abonnement &amp; Stripe</h2>
+                  <h2 className="font-hud font-bold text-lg text-white">Accès &amp; Facturation</h2>
                 </div>
                 <span className="text-xs font-mono-code text-emerald-400 uppercase">
-                  {account?.subscriptionStatus || 'active'}
+                  {account?.subscriptionTier || 'free'}
                 </span>
               </div>
 
               <div className="p-4 bg-[#0e0320] border border-[#00f0ff]/30 space-y-1.5">
-                <div className="text-xs font-mono-code text-slate-400 uppercase">Formule actuelle</div>
+                <div className="text-xs font-mono-code text-slate-400 uppercase">
+                  Statut Firestore du compte
+                </div>
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="font-hud font-bold text-xl text-white">{currentPlan.name}</span>
                   <span className="font-mono-code font-bold text-[#00f0ff]">
                     {currentPlan.priceDisplay}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">{currentPlan.billingCycle}</p>
+                <p className="text-xs text-slate-400">
+                  Les droits payants ne peuvent pas être modifiés côté client (protégés par les
+                  règles Firestore).
+                </p>
               </div>
 
               <div className="space-y-2 text-xs text-slate-300">
-                <div className="font-mono-code text-[11px] uppercase text-slate-400">
-                  Préparation Stripe
-                </div>
                 <div className="flex items-center justify-between py-1.5 border-b border-white/10">
-                  <span>Clé publique Stripe</span>
-                  <span className={isStripeConfigured() ? 'text-emerald-400 font-mono-code' : 'text-amber-400 font-mono-code'}>
-                    {isStripeConfigured() ? 'Configurée' : 'À configurer (.env)'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-white/10">
-                  <span>Endpoint Checkout</span>
-                  <span className="text-slate-200 font-mono-code truncate max-w-[180px]">
-                    {STRIPE_CONFIG.checkoutEndpoint}
-                  </span>
+                  <span>Offre de lancement (7 €)</span>
+                  <span className="text-[#00f0ff] font-mono-code">Gumroad actif</span>
                 </div>
                 <div className="flex items-center justify-between py-1.5">
-                  <span>Paiement réel</span>
-                  <span className="text-slate-300 font-mono-code">
-                    {isStripeConfigured() ? 'Prêt sur validation' : 'Désactivé (Sécurisé)'}
+                  <span>Abonnements Stripe</span>
+                  <span className="text-amber-400 font-mono-code">
+                    {isStripeConfigured() ? 'Clé détectée' : 'Non activé'}
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2.5 pt-2">
+                <a
+                  href={GUMROAD_PRODUCT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => cyberAudio.playChirp()}
+                  className="flex-1 py-2.5 px-4 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 text-center"
+                >
+                  <span>Offre Gumroad 7 €</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
                 <button
                   onClick={() => onNavigate('pricing')}
-                  className="flex-1 py-2.5 px-4 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-wider cursor-pointer text-center"
+                  className="py-2.5 px-4 bg-[#0e0320] hover:bg-[#1b0838] border border-[#00f0ff]/45 text-[#00f0ff] font-hud font-bold text-xs uppercase tracking-wider cursor-pointer"
                 >
-                  Voir les formules
+                  Tarifs
                 </button>
                 {STRIPE_CONFIG.portalUrl && (
                   <a
                     href={STRIPE_CONFIG.portalUrl}
                     target="_blank"
-                    rel="noreferrer"
-                    className="py-2.5 px-4 bg-[#0e0320] border border-[#00f0ff]/45 text-[#00f0ff] font-hud font-bold text-xs uppercase tracking-wider"
+                    rel="noopener noreferrer"
+                    className="py-2.5 px-4 bg-[#0e0320] border border-slate-700 text-slate-200 font-hud font-bold text-xs uppercase tracking-wider"
                   >
-                    Portail Stripe
+                    Portail
                   </a>
                 )}
               </div>
             </div>
 
-            {/* Cloud Progression Snapshots */}
+            {/* Manual Cloud Progression Snapshots */}
             <div className="bg-[#180633] border border-[#00f0ff]/30 p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-[#ff2a85]/20 pb-3">
                 <div className="flex items-center gap-2">
                   <CloudUpload className="w-5 h-5 text-[#00f0ff]" />
-                  <h2 className="font-hud font-bold text-lg text-white">Sauvegardes Cloud</h2>
+                  <h2 className="font-hud font-bold text-lg text-white">Snapshots Cloud Manuels</h2>
                 </div>
                 <span className="text-xs font-mono-code text-slate-400">
                   {cloudSnapshots.length} snapshot(s)
                 </span>
               </div>
+
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Les snapshots Cloud sont enregistrés <strong className="text-slate-200">à la demande</strong>{' '}
+                (pas de synchronisation automatique en arrière-plan) et isolés sur votre UID Firebase.
+              </p>
 
               {user ? (
                 <>
@@ -608,22 +719,32 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                     <CloudUpload className="w-4 h-4" />
                     <span>
                       {syncingCloud
-                        ? 'Synchronisation...'
-                        : `Sauvegarder l'état actuel (${overallProgress}%)`}
+                        ? 'Enregistrement...'
+                        : `Enregistrer un snapshot (${overallProgress}%)`}
                     </span>
                   </button>
 
-                  {cloudMessage && (
-                    <div className="p-2.5 bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 text-xs font-mono-code flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <span>{cloudMessage}</span>
+                  {cloudFeedback && (
+                    <div
+                      className={`p-2.5 border text-xs font-mono-code flex items-center gap-2 ${
+                        cloudFeedback.type === 'success'
+                          ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300'
+                          : 'bg-rose-950/50 border-rose-500/50 text-rose-200'
+                      }`}
+                    >
+                      {cloudFeedback.type === 'success' ? (
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                      )}
+                      <span>{cloudFeedback.text}</span>
                     </div>
                   )}
 
                   {cloudSnapshots.length === 0 ? (
                     <p className="text-xs text-slate-400">
-                      Aucun instantané cloud enregistré. Cliquez ci-dessus pour synchroniser vos
-                      missions, collectibles, véhicules, objectifs et notes.
+                      Aucun snapshot enregistré. Cliquez ci-dessus pour archiver l&apos;état actuel
+                      de vos missions, collectibles, véhicules, objectifs et notes.
                     </p>
                   ) : (
                     <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
@@ -652,17 +773,20 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                                   notes: snap.notes,
                                 });
                                 cyberAudio.playFanfare();
-                                setCloudMessage(`Instantané "${snap.profileName}" restauré !`);
+                                setCloudFeedback({
+                                  type: 'success',
+                                  text: `Snapshot "${snap.profileName}" restauré dans votre HUD.`,
+                                });
                               }}
                               className="p-1.5 bg-[#00f0ff]/15 hover:bg-[#00f0ff]/30 border border-[#00f0ff]/45 text-[#00f0ff] cursor-pointer"
-                              title="Restaurer cet instantané"
+                              title="Restaurer ce snapshot"
                             >
                               <CloudDownload className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => void deleteCloudSnapshot(snap.id)}
+                              onClick={() => void handleDeleteSnapshot(snap.id)}
                               className="p-1.5 bg-slate-900 hover:text-rose-400 text-slate-400 border border-slate-800 cursor-pointer"
-                              title="Supprimer cet instantané"
+                              title="Supprimer ce snapshot"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -674,8 +798,8 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                 </>
               ) : (
                 <p className="text-xs text-slate-400">
-                  Connectez-vous avec Google pour activer la sauvegarde cloud multi-appareils dans
-                  Firestore (l&apos;export/import JSON local reste disponible hors-ligne dans Stats).
+                  Connectez-vous avec Google pour créer et restaurer des snapshots Cloud dans
+                  Firestore (l&apos;export/import JSON local reste disponible dans Stats &amp; JSON).
                 </p>
               )}
             </div>
