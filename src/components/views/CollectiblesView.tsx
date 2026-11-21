@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
+import { useLocale } from '../../context/LocaleContext';
 import { Collectible, CollectibleCategory } from '../../types';
 import {
   Sparkles,
@@ -26,6 +27,8 @@ interface CollectiblesViewProps {
 export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewItemModal }) => {
   const { collectibles, toggleCollectible, updateCollectible, deleteCollectible, stats } =
     useGame();
+  const { locale, appCopy } = useLocale();
+  const t = appCopy.collectibles;
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -89,15 +92,15 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
   const getCategoryLabel = (cat: CollectibleCategory) => {
     switch (cat) {
       case 'audio_log':
-        return 'Journal Audio';
+        return t.catAudioLog;
       case 'relic':
-        return 'Relique';
+        return t.catRelic;
       case 'blueprint':
-        return 'Plan';
+        return t.catBlueprint;
       case 'cache':
-        return 'Cache Secrète';
+        return t.catCache;
       case 'easter_egg':
-        return 'Secret';
+        return t.catEasterEgg;
     }
   };
 
@@ -109,11 +112,11 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
         <div>
           <div className="flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-amber-400" />
-            <h1 className="text-2xl font-bold font-hud text-white uppercase">Collectibles</h1>
+            <h1 className="text-2xl font-bold font-hud text-white uppercase">
+              {appCopy.progression.tabCollectibles}
+            </h1>
           </div>
-          <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-            Localisation, indices, édition rapide et suivi de complétion de vos objets cachés.
-          </p>
+          <p className="text-slate-400 text-xs sm:text-sm mt-0.5">{t.emptyDesc}</p>
         </div>
 
         <button
@@ -122,7 +125,7 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-wider shadow-[0_0_18px_rgba(255,42,133,0.3)] transition-all cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
-          <span>Ajouter un collectible</span>
+          <span>{appCopy.progression.newCollectible}</span>
         </button>
       </div>
 
@@ -130,10 +133,10 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
       <div className="jitalx-panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="text-[11px] font-mono-code text-slate-400 uppercase">
-            Statut des objets cachés
+            {appCopy.progression.tabCollectibles}
           </div>
           <div className="text-xl font-bold font-hud text-white mt-0.5 tabular-nums">
-            {stats.collectiblesDone} / {stats.collectiblesTotal} découverts ({progressPct}%)
+            {stats.collectiblesDone} / {stats.collectiblesTotal} {t.collected.toLowerCase()} ({progressPct}%)
           </div>
         </div>
 
@@ -153,7 +156,7 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Rechercher un nom, secteur ou indice..."
+            placeholder={t.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 jitalx-input text-sm"
@@ -162,12 +165,12 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
           {[
-            { id: 'all', label: 'Tous' },
-            { id: 'audio_log', label: 'Audio' },
-            { id: 'relic', label: 'Reliques' },
-            { id: 'blueprint', label: 'Plans' },
-            { id: 'cache', label: 'Caches' },
-            { id: 'easter_egg', label: 'Secrets' },
+            { id: 'all', label: t.catAll },
+            { id: 'audio_log', label: t.catAudioLog },
+            { id: 'relic', label: t.catRelic },
+            { id: 'blueprint', label: t.catBlueprint },
+            { id: 'cache', label: t.catCache },
+            { id: 'easter_egg', label: t.catEasterEgg },
           ].map((chip) => (
             <button
               key={chip.id}
@@ -190,7 +193,7 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
         {filteredItems.length === 0 ? (
           <div className="col-span-full p-8 text-center jitalx-panel">
             <Sparkles className="w-10 h-10 text-slate-500 mx-auto mb-2" />
-            <div className="text-slate-200 font-semibold">Aucun collectible trouvé.</div>
+            <div className="text-slate-200 font-semibold">{t.emptyTitle}</div>
           </div>
         ) : (
           filteredItems.map((item) => {
@@ -211,13 +214,13 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
                     className="space-y-2.5"
                   >
                     <div className="text-xs font-hud font-bold uppercase text-[#00f0ff]">
-                      Modifier le collectible
+                      {appCopy.common.edit}
                     </div>
                     <input
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Nom"
+                      placeholder={appCopy.modalNew.fieldName}
                       className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                     />
                     <div className="grid grid-cols-2 gap-2">
@@ -226,17 +229,17 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
                         onChange={(e) => setEditCategory(e.target.value as CollectibleCategory)}
                         className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                       >
-                        <option value="relic">Relique</option>
-                        <option value="cache">Cache Secrète</option>
-                        <option value="audio_log">Journal Audio</option>
-                        <option value="blueprint">Plan</option>
-                        <option value="easter_egg">Secret</option>
+                        <option value="relic">{t.catRelic}</option>
+                        <option value="cache">{t.catCache}</option>
+                        <option value="audio_log">{t.catAudioLog}</option>
+                        <option value="blueprint">{t.catBlueprint}</option>
+                        <option value="easter_egg">{t.catEasterEgg}</option>
                       </select>
                       <input
                         type="text"
                         value={editDistrict}
                         onChange={(e) => setEditDistrict(e.target.value)}
-                        placeholder="Secteur"
+                        placeholder={appCopy.modalNew.fieldDistrict}
                         className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                       />
                     </div>
@@ -244,14 +247,14 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
                       type="text"
                       value={editHint}
                       onChange={(e) => setEditHint(e.target.value)}
-                      placeholder="Indice de localisation"
+                      placeholder={t.hintLabel}
                       className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                     />
                     <input
                       type="text"
                       value={editCoords}
                       onChange={(e) => setEditCoords(e.target.value)}
-                      placeholder="Coordonnées (ex: X: 142.8 | Y: 89.2)"
+                      placeholder="X: 142.8 | Y: 89.2"
                       className="w-full jitalx-input px-2.5 py-1.5 text-xs font-mono-code"
                     />
                     <div className="flex justify-end gap-2 pt-1">
@@ -261,7 +264,7 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
                         className="px-3 py-1.5 bg-slate-900 text-xs text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
-                        <span>Annuler</span>
+                        <span>{appCopy.common.cancel}</span>
                       </button>
                       <button
                         type="button"
@@ -269,7 +272,7 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
                         className="px-3 py-1.5 bg-[#00f0ff] text-[#120428] text-xs font-hud font-bold uppercase flex items-center gap-1 cursor-pointer"
                       >
                         <Check className="w-3.5 h-3.5" />
-                        <span>Enregistrer</span>
+                        <span>{appCopy.common.save}</span>
                       </button>
                     </div>
                   </div>
@@ -309,7 +312,7 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
                       </div>
 
                       <p className="text-xs text-slate-300 mt-2 leading-relaxed jitalx-panel-deep p-2.5">
-                        <span className="text-slate-400 font-semibold">Indice : </span>
+                        <span className="text-slate-400 font-semibold">{t.hintLabel}: </span>
                         {item.hint}
                       </p>
                     </div>
@@ -317,11 +320,11 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
                     <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] font-mono-code text-slate-400">
                       <span className="flex items-center gap-1">
                         <Compass className="w-3.5 h-3.5 text-[#00f0ff]" />
-                        {item.coordinates || 'Coordonnées libres'}
+                        {item.coordinates || (locale === 'fr' ? 'Coordonnées libres' : 'Free coords')}
                       </span>
                       <div className="flex items-center gap-2">
                         <span className={item.collected ? 'text-emerald-400' : 'text-slate-500'}>
-                          {item.collected ? 'Obtenu' : 'À trouver'}
+                          {item.collected ? t.collected : t.missing}
                         </span>
                         <button
                           type="button"
@@ -330,7 +333,7 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
                             startEdit(item);
                           }}
                           className="p-1 text-slate-400 hover:text-[#00f0ff] cursor-pointer"
-                          title="Modifier ce collectible"
+                          title={appCopy.common.edit}
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -341,7 +344,7 @@ export const CollectiblesView: React.FC<CollectiblesViewProps> = ({ onOpenNewIte
                             deleteCollectible(item.id);
                           }}
                           className="p-1 text-slate-400 hover:text-rose-400 cursor-pointer"
-                          title="Supprimer ce collectible"
+                          title={appCopy.common.delete}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

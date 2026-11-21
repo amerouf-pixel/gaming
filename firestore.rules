@@ -84,7 +84,7 @@ service cloud.firestore {
       data.keys().hasOnly([
         'ownerId', 'profileId', 'profileName', 'overallProgress',
         'missionsDone', 'missionsTotal', 'collectiblesDone', 'collectiblesTotal',
-        'missions', 'collectibles', 'vehicles', 'objectives', 'notes',
+        'missions', 'collectibles', 'vehicles', 'objectives', 'notes', 'mapMarkers',
         'createdAt', 'updatedAt'
       ]) &&
       data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId) &&
@@ -105,6 +105,11 @@ service cloud.firestore {
       (data.objectives.size() == 0 || data.objectives[0] is map) &&
       data.notes is list && data.notes.size() <= 100 &&
       (data.notes.size() == 0 || data.notes[0] is map) &&
+      (!('mapMarkers' in data) || (
+        data.mapMarkers is list &&
+        data.mapMarkers.size() <= 150 &&
+        (data.mapMarkers.size() == 0 || data.mapMarkers[0] is map)
+      )) &&
       data.createdAt is timestamp &&
       data.updatedAt is timestamp;
     }
@@ -210,6 +215,7 @@ service cloud.firestore {
         allow create: if isValidId(userId) && isValidId(snapshotId) &&
           isOwner(userId) &&
           isValidCloudSnapshot(incoming(), userId) &&
+          'mapMarkers' in incoming() &&
           incoming().createdAt == request.time &&
           incoming().updatedAt == request.time &&
           exists(/databases/$(database)/documents/users/$(userId));
@@ -226,7 +232,7 @@ service cloud.firestore {
               incoming().diff(existing()).affectedKeys().hasOnly([
                 'profileId', 'profileName', 'overallProgress',
                 'missionsDone', 'missionsTotal', 'collectiblesDone', 'collectiblesTotal',
-                'missions', 'collectibles', 'vehicles', 'objectives', 'notes', 'updatedAt'
+                'missions', 'collectibles', 'vehicles', 'objectives', 'notes', 'mapMarkers', 'updatedAt'
               ])
             )
           );

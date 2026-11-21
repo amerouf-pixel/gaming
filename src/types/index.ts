@@ -112,6 +112,79 @@ export interface GameProfile {
   isCustom?: boolean;
 }
 
+/**
+ * Complete isolated workspace state for a single game profile.
+ */
+export interface ProfileWorkspaceData {
+  missions: Mission[];
+  collectibles: Collectible[];
+  vehicles: Vehicle[];
+  objectives: Objective[];
+  notes: TacticalNote[];
+  mapMarkers: MapMarker[];
+  customMapUrl: string;
+  activityLog: ActivityItem[];
+  totalTrackedSeconds: number;
+}
+
+export type ProgressEventKind = 'mission' | 'collectible' | 'vehicle' | 'objective';
+
+export interface ProgressEvent {
+  id: string;
+  profileId: string;
+  timestamp: number; // epoch ms
+  dateKey: string; // YYYY-MM-DD local date
+  kind: ProgressEventKind;
+  delta: number; // +1 or -1
+  xpDelta: number;
+  label: string;
+}
+
+export interface SessionRecord {
+  id: string;
+  profileId: string;
+  startedAt: number; // epoch ms
+  endedAt: number; // epoch ms
+  dateKey: string; // YYYY-MM-DD
+  durationSeconds: number;
+  actionsCount: number;
+  xpDelta: number;
+}
+
+export interface ProfileStatsSummary {
+  profileId: string;
+  profileName: string;
+  universe: string;
+  theme: UniverseTheme;
+  missionsDone: number;
+  missionsTotal: number;
+  collectiblesDone: number;
+  collectiblesTotal: number;
+  vehiclesUnlocked: number;
+  vehiclesTotal: number;
+  objectivesDone: number;
+  objectivesTotal: number;
+  earnedXp: number;
+  overallProgress: number;
+  totalTrackedSeconds: number;
+}
+
+export interface GlobalMultiGameStats {
+  totalProfiles: number;
+  missionsDone: number;
+  missionsTotal: number;
+  collectiblesDone: number;
+  collectiblesTotal: number;
+  vehiclesUnlocked: number;
+  vehiclesTotal: number;
+  objectivesDone: number;
+  objectivesTotal: number;
+  totalEarnedXp: number;
+  totalTrackedSeconds: number;
+  overallProgress: number;
+  perProfile: ProfileStatsSummary[];
+}
+
 export type SubscriptionTier = 'free' | 'pro_monthly' | 'lifetime' | 'creator';
 export type SubscriptionStatus = 'active' | 'inactive' | 'pending_stripe';
 export type StreamPlatform = 'twitch' | 'youtube' | 'tiktok' | 'kick' | 'multi';
@@ -145,6 +218,8 @@ export interface CloudSnapshotRecord {
   vehicles: Vehicle[];
   objectives: Objective[];
   notes: TacticalNote[];
+  mapMarkers: MapMarker[];
+  customMapUrl?: string;
   updatedAtMs?: number;
 }
 
@@ -158,4 +233,31 @@ export interface CreatorInquiryInput {
   platform: InquiryPlatform;
   inquiryType: InquiryType;
   message: string;
+}
+
+export interface PaymentBackendStatus {
+  gumroadUrl: string;
+  gumroadWebhookConfigured: boolean;
+  stripeCheckoutConfigured: boolean;
+  stripeWebhookConfigured: boolean;
+  stripePortalConfigured: boolean;
+  stripePricesConfigured: {
+    pro_monthly: boolean;
+    creator: boolean;
+  };
+  firestoreServerSyncReady: boolean;
+  missingEnvVars: string[];
+}
+
+export interface IntegrationsBackendStatus {
+  twitchConfigured: boolean;
+  youtubeConfigured: boolean;
+  callbackUrls: {
+    twitch: string;
+    youtube: string;
+  };
+  connections: {
+    twitch: { connected: boolean; handle?: string; channelTitle?: string };
+    youtube: { connected: boolean; handle?: string; channelTitle?: string };
+  };
 }

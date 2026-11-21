@@ -1,11 +1,14 @@
 import React from 'react';
 import { useGame } from '../../context/GameContext';
+import { useLocale } from '../../context/LocaleContext';
 import { HoloRadar } from '../HoloRadar';
+import { DashboardMiniTelemetryChart } from '../charts/DashboardMiniTelemetryChart';
 import { cyberAudio } from '../../utils/cyberAudio';
+import { DISCORD_INVITE_URL, DiscordIcon } from '../../config/community';
 import {
   getDefaultVehicleImage,
+  getVehicleCategoryLabel,
   isValidImageUrl,
-  VEHICLE_CATEGORY_LABELS,
 } from '../../utils/vehicleVisuals';
 import {
   Compass,
@@ -23,6 +26,7 @@ import {
   Info,
   Clock,
   Award,
+  ExternalLink,
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -46,6 +50,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
     toggleMissionStep,
     toggleCollectible,
   } = useGame();
+  const { locale, appCopy } = useLocale();
+  const t = appCopy.home;
 
   const inProgressMissions = missions.filter((m) => m.status === 'in_progress');
   const activeMission =
@@ -84,7 +90,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
           <div className="space-y-2.5 min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono-code text-slate-300">
               <span className="text-[#00f0ff] font-semibold uppercase tracking-wider">
-                Centre de commandement
+                {t.heroTitlePrefix}
               </span>
               <span className="text-slate-600">·</span>
               <span>{activeProfile.name}</span>
@@ -94,7 +100,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
 
             <div className="flex flex-wrap items-baseline gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold font-hud text-white tracking-wide uppercase">
-                Progression Globale
+                {t.statCompletion}
               </h1>
               <span className="text-2xl sm:text-3xl font-bold font-mono-code text-[#00f0ff] tabular-nums">
                 {overallProgress}%
@@ -110,10 +116,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               </div>
               <div className="flex items-center justify-between text-[11px] font-mono-code text-slate-400 tabular-nums">
                 <span>
-                  {completedItems} / {totalItems} éléments complétés
+                  {completedItems} / {totalItems} {locale === 'fr' ? 'éléments complétés' : 'items completed'}
                 </span>
                 <span>
-                  {inProgressMissions.length} mission{inProgressMissions.length > 1 ? 's' : ''} en cours
+                  {inProgressMissions.length}{' '}
+                  {locale === 'fr'
+                    ? `mission${inProgressMissions.length > 1 ? 's' : ''} en cours`
+                    : `active mission${inProgressMissions.length > 1 ? 's' : ''}`}
                 </span>
               </div>
             </div>
@@ -131,7 +140,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                 className="px-4 py-2.5 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_18px_rgba(255,42,133,0.35)] whitespace-nowrap"
               >
                 <Video className="w-4 h-4" />
-                <span>Streamer Studio</span>
+                <span>{t.openObsStudio}</span>
               </button>
             )}
 
@@ -144,7 +153,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               className="px-4 py-2.5 bg-[#0b021a] hover:bg-[#1e0940] border border-[#00f0ff]/55 text-[#00f0ff] font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap"
             >
               <Map className="w-4 h-4" />
-              <span>Carte du jeu</span>
+              <span>{appCopy.nav.map}</span>
             </button>
 
             <button
@@ -156,7 +165,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               className="px-4 py-2.5 bg-[#00f0ff] hover:bg-[#4ff6ff] text-[#120428] font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>Ajouter</span>
+              <span>{t.quickAdd}</span>
             </button>
           </div>
         </div>
@@ -172,7 +181,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
             className="text-left p-3.5 jitalx-panel-deep hover:border-[#00f0ff]/55 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-hud font-bold uppercase">Missions</span>
+              <span className="text-xs font-hud font-bold uppercase">{t.statMissions}</span>
               <Compass className="w-4 h-4 text-[#00f0ff]" />
             </div>
             <div className="text-2xl font-bold font-mono-code text-white tabular-nums">
@@ -196,7 +205,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
             className="text-left p-3.5 jitalx-panel-deep hover:border-amber-400/55 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-hud font-bold uppercase">Collectibles</span>
+              <span className="text-xs font-hud font-bold uppercase">{t.statCollectibles}</span>
               <Sparkles className="w-4 h-4 text-amber-400" />
             </div>
             <div className="text-2xl font-bold font-mono-code text-white tabular-nums">
@@ -222,7 +231,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
             className="text-left p-3.5 jitalx-panel-deep hover:border-emerald-400/55 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-hud font-bold uppercase">Véhicules possédés</span>
+              <span className="text-xs font-hud font-bold uppercase">{t.statGarage}</span>
               <Car className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-bold font-mono-code text-white tabular-nums">
@@ -248,7 +257,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
             className="text-left p-3.5 jitalx-panel-deep hover:border-[#ff2a85]/55 transition-colors cursor-pointer"
           >
             <div className="flex items-center justify-between text-slate-400 mb-1">
-              <span className="text-xs font-hud font-bold uppercase">Trophées</span>
+              <span className="text-xs font-hud font-bold uppercase">{t.statObjectives}</span>
               <Trophy className="w-4 h-4 text-[#ff7b00]" />
             </div>
             <div className="text-2xl font-bold font-mono-code text-white tabular-nums">
@@ -266,15 +275,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
           </button>
         </div>
 
-        {!activeProfile.isCustom && (
-          <div className="mt-4 pt-3 border-t border-white/5 text-[11px] font-mono-code text-slate-400 flex items-center gap-2">
-            <Info className="w-3.5 h-3.5 text-[#00f0ff] shrink-0" />
-            <span>
-              Données de démonstration personnalisables ({activeProfile.universe}) — toutes les
-              entrées sont éditables ou supprimables.
-            </span>
-          </div>
-        )}
+        <div className="mt-4 pt-3 border-t border-white/5 text-[11px] font-mono-code text-slate-400 flex items-center gap-2">
+          <Info className="w-3.5 h-3.5 text-[#00f0ff] shrink-0" />
+          <span>{appCopy.common.multiGameNote}</span>
+        </div>
       </section>
 
       {/* 2. COLONNES OPÉRATIONNELLES : MISSIONS, OBJECTIFS, COLLECTIBLES + GARAGE, ACTIVITÉS, NOTES */}
@@ -287,7 +291,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               <div className="flex items-center gap-2 text-xs font-mono-code">
                 <Compass className="w-4 h-4 text-[#ff2a85]" />
                 <span className="font-hud font-bold text-white uppercase tracking-wider text-sm">
-                  Mission en cours
+                  {t.priorityMissionHeading}
                 </span>
                 {activeMission && (
                   <>
@@ -304,7 +308,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                 }}
                 className="text-xs text-[#00f0ff] hover:underline font-hud font-bold uppercase flex items-center gap-1 cursor-pointer"
               >
-                <span>Toutes les missions</span>
+                <span>{t.openMissions}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -346,7 +350,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono-code text-slate-400">
-                  <span>Contact : {activeMission.giver}</span>
+                  <span>
+                    {appCopy.missions.giverLabel}: {activeMission.giver}
+                  </span>
                   <span className="text-[#00f0ff] tabular-nums">
                     +{activeMission.rewardXp} XP · +{activeMission.rewardCredits} Cr
                   </span>
@@ -354,10 +360,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               </div>
             ) : (
               <div className="p-4 jitalx-panel-deep text-xs text-slate-400">
-                Aucune mission enregistrée. Ajoutez votre première mission pour démarrer le suivi.
+                {t.noPriorityMission}
               </div>
             )}
           </div>
+
+          {/* Real 7-Day Activity Chart */}
+          <DashboardMiniTelemetryChart onNavigateToStats={() => setCurrentTab('stats')} />
 
           {/* Priority Objectives & Trophies */}
           <div className="jitalx-panel p-5 space-y-4">
@@ -365,7 +374,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               <div className="flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-[#ff7b00]" />
                 <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
-                  Objectifs prioritaires &amp; Trophées
+                  {appCopy.progression.tabObjectives}
                 </h2>
               </div>
               <button
@@ -376,7 +385,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                 }}
                 className="text-xs text-[#00f0ff] hover:underline font-hud font-bold uppercase flex items-center gap-1 cursor-pointer"
               >
-                <span>Gérer ({unlockedObjectives.length}/{objectives.length})</span>
+                <span>
+                  {locale === 'fr' ? 'Gérer' : 'Manage'} ({unlockedObjectives.length}/{objectives.length})
+                </span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -384,7 +395,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
             {priorityObjectives.length === 0 ? (
               <div className="p-3.5 jitalx-panel-deep text-xs text-emerald-300 font-mono-code flex items-center gap-2">
                 <Award className="w-4 h-4 shrink-0" />
-                <span>Tous les objectifs actuellement configurés sont débloqués.</span>
+                <span>
+                  {locale === 'fr'
+                    ? 'Tous les objectifs configurés sont débloqués.'
+                    : 'All configured objectives are unlocked.'}
+                </span>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -420,7 +435,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
-                  Collectibles restants ({stats.collectiblesTotal - stats.collectiblesDone})
+                  {t.statCollectibles} ({stats.collectiblesTotal - stats.collectiblesDone}{' '}
+                  {appCopy.collectibles.missing.toLowerCase()})
                 </h2>
               </div>
               <button
@@ -431,14 +447,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                 }}
                 className="text-xs text-amber-300 hover:underline font-hud font-bold uppercase flex items-center gap-1 cursor-pointer"
               >
-                <span>Catalogue complet</span>
+                <span>{locale === 'fr' ? 'Catalogue complet' : 'Full catalog'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {nextCollectibles.length === 0 ? (
               <div className="p-3.5 jitalx-panel-deep text-xs text-emerald-300 font-mono-code">
-                Tous les collectibles de ce profil sont validés.
+                {locale === 'fr'
+                  ? 'Tous les collectibles de ce profil sont validés.'
+                  : 'All collectibles in this game profile are collected.'}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -466,7 +484,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                       className="w-full py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/45 text-amber-300 text-xs font-hud font-bold uppercase flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Marquer obtenu</span>
+                      <span>{appCopy.collectibles.collected}</span>
                     </button>
                   </div>
                 ))}
@@ -484,7 +502,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                 <div className="flex items-center gap-2">
                   <Car className="w-4 h-4 text-emerald-400" />
                   <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
-                    Garage · Véhicule vedette
+                    {t.statGarage}
                   </h2>
                 </div>
                 <button
@@ -495,7 +513,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                   }}
                   className="text-xs text-emerald-400 hover:underline font-hud font-bold uppercase cursor-pointer"
                 >
-                  Ouvrir
+                  {locale === 'fr' ? 'Ouvrir' : 'Open'}
                 </button>
               </div>
 
@@ -508,7 +526,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0b021a] via-[#0b021a]/70 to-transparent p-4">
                   <div className="text-[11px] font-mono-code text-slate-300">
-                    {featuredVehicle.manufacturer} · {VEHICLE_CATEGORY_LABELS[featuredVehicle.category]}
+                    {featuredVehicle.manufacturer} ·{' '}
+                    {getVehicleCategoryLabel(featuredVehicle.category, locale)}
                   </div>
                   <div className="font-hud font-bold text-lg text-white">
                     {featuredVehicle.name}
@@ -518,7 +537,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
 
               <div className="p-4 space-y-2.5 text-xs font-mono-code">
                 <div className="flex items-center justify-between text-slate-300">
-                  <span>Vitesse / Maniabilité / Blindage</span>
+                  <span>
+                    {appCopy.garage.speed} / {appCopy.garage.handling} / {appCopy.garage.armor}
+                  </span>
                   <span className="text-[#00f0ff] tabular-nums">
                     {featuredVehicle.speed} · {featuredVehicle.handling} · {featuredVehicle.armor}
                   </span>
@@ -537,7 +558,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[#00f0ff]" />
                 <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
-                  Dernières activités
+                  {t.recentActivityHeading}
                 </h2>
               </div>
               <span className="text-[11px] font-mono-code text-slate-400 tabular-nums">
@@ -546,10 +567,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
             </div>
 
             {activityLog.length === 0 ? (
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Vos actions récentes (missions validées, collectibles cochés, véhicules débloqués,
-                repères carte) apparaîtront ici en direct.
-              </p>
+              <p className="text-xs text-slate-400 leading-relaxed">{t.noRecentActivity}</p>
             ) : (
               <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                 {activityLog.slice(0, 6).map((act) => (
@@ -573,7 +591,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               <div className="flex items-center gap-2">
                 <Pin className="w-4 h-4 text-[#ff7b00]" />
                 <h2 className="font-hud font-bold text-sm text-white uppercase tracking-wider">
-                  Notes épinglées
+                  {appCopy.notes.pinnedSection}
                 </h2>
               </div>
               <button
@@ -584,12 +602,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
                 }}
                 className="text-xs text-[#00f0ff] hover:underline font-hud font-bold uppercase cursor-pointer"
               >
-                Notes
+                {appCopy.nav.notes}
               </button>
             </div>
 
             {pinnedNotes.length === 0 ? (
-              <p className="text-xs text-slate-400">Aucune note épinglée.</p>
+              <p className="text-xs text-slate-400">{appCopy.notes.emptyTitle}</p>
             ) : (
               <div className="space-y-2">
                 {pinnedNotes.map((note) => (
@@ -611,14 +629,40 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
               </div>
             )}
           </div>
+
+          {/* Quick Link: Discord Community & Support */}
+          <a
+            href={DISCORD_INVITE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => cyberAudio.playClick()}
+            className="block jitalx-panel p-4 border-[#5865F2]/45 hover:border-[#5865F2] transition-colors group"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-9 h-9 bg-[#5865F2]/20 border border-[#5865F2]/55 flex items-center justify-center shrink-0">
+                  <DiscordIcon className="w-5 h-5 text-[#8c96ff] group-hover:text-white transition-colors" />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <div className="font-hud font-bold text-sm text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="truncate">{t.discordSupportCta}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    {t.discordSupportDesc}
+                  </p>
+                </div>
+              </div>
+              <ExternalLink className="w-4 h-4 text-[#8c96ff] group-hover:text-white shrink-0 mt-0.5 transition-colors" />
+            </div>
+          </a>
         </div>
       </div>
 
-      {/* 3. RADAR TACTIQUE 360° (COMPOSANT SÉPARÉ DE LA GRANDE CARTE) */}
+      {/* 3. RADAR TACTIQUE 360° */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono-code uppercase tracking-wider text-slate-400">
-            Radar de proximité 360° (distinct de la Grande Carte)
+            {locale === 'fr' ? 'Radar de proximité 360°' : '360° Proximity Radar'}
           </span>
           <button
             type="button"
@@ -629,7 +673,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenNewItemModal, onOpenSt
             className="text-xs font-hud font-bold uppercase text-[#00f0ff] hover:underline flex items-center gap-1 cursor-pointer"
           >
             <Map className="w-3.5 h-3.5" />
-            <span>Ouvrir la Grande Carte Interactive</span>
+            <span>{appCopy.map.title}</span>
           </button>
         </div>
         <HoloRadar />

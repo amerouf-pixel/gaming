@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
+import { useLocale } from '../../context/LocaleContext';
 import { Vehicle, VehicleCategory } from '../../types';
 import {
   getDefaultVehicleImage,
+  getVehicleCategoryLabel,
   isValidImageUrl,
-  VEHICLE_CATEGORY_LABELS,
 } from '../../utils/vehicleVisuals';
 import {
   Car,
@@ -29,6 +30,13 @@ interface VehiclesViewProps {
   onOpenNewItemModal: () => void;
 }
 
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+]);
+
 const clampStat = (val: string, fallback: number): number => {
   const n = Number(val);
   if (!Number.isFinite(n)) return fallback;
@@ -44,6 +52,8 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
     deleteVehicle,
     stats,
   } = useGame();
+  const { locale, appCopy } = useLocale();
+  const t = appCopy.garage;
 
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
@@ -75,6 +85,13 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
 
   const saveEdit = (id: string) => {
     if (!editName.trim()) return;
+    const trimmedImg = editImageUrl.trim();
+    if (trimmedImg && !isValidImageUrl(trimmedImg)) {
+      setImageError(t.invalidImageUrl);
+      return;
+    }
+
+    setImageError(null);
     updateVehicle(id, {
       name: editName.trim(),
       manufacturer: editManufacturer.trim() || 'Custom',
@@ -82,9 +99,9 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
       speed: clampStat(editSpeed, 75),
       handling: clampStat(editHandling, 75),
       armor: clampStat(editArmor, 60),
-      location: editLocation.trim() || 'Garage personnel',
+      location: editLocation.trim() || (locale === 'fr' ? 'Garage personnel' : 'Personal Garage'),
       notes: editNotes.trim() || undefined,
-      imageUrl: editImageUrl.trim() || undefined,
+      imageUrl: trimmedImg || undefined,
     });
     setFailedImages((prev) => ({ ...prev, [id]: false }));
     setEditingId(null);
@@ -94,21 +111,26 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
     const file = e.target.files?.[0];
     if (!file) return;
     setImageError(null);
-    if (!file.type.startsWith('image/')) {
-      setImageError('Format non pris en charge (utilisez PNG, JPG ou WebP).');
+    if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
+      setImageError(t.invalidFileType);
+      e.target.value = '';
       return;
     }
     if (file.size > 1.5 * 1024 * 1024) {
-      setImageError('Image trop lourde (> 1,5 Mo). Utilisez une image plus légère ou une URL.');
+      setImageError(t.fileTooLarge);
+      e.target.value = '';
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
+      if (typeof reader.result === 'string' && isValidImageUrl(reader.result)) {
         setEditImageUrl(reader.result);
+      } else {
+        setImageError(t.invalidFileType);
       }
     };
-    reader.onerror = () => setImageError('Erreur de lecture du fichier.');
+    reader.onerror = () =>
+      setImageError(locale === 'fr' ? 'Erreur de lecture du fichier.' : 'Failed to read file.');
     reader.readAsDataURL(file);
     e.target.value = '';
   };
@@ -134,12 +156,10 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
           <div className="flex items-center gap-2.5">
             <Car className="w-6 h-6 text-[#00f0ff]" />
             <h1 className="text-2xl font-bold font-hud text-white uppercase tracking-wide">
-              Garage Visuel
+              {t.title}
             </h1>
           </div>
-          <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-            Galerie de véhicules par catégorie, suivi de collection et fiches personnalisables.
-          </p>
+          <p className="text-slate-400 text-xs sm:text-sm mt-0.5">{t.subtitle}</p>
         </div>
 
         <button
@@ -148,7 +168,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-wider shadow-[0_0_18px_rgba(255,42,133,0.35)] transition-all cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
-          <span>Ajouter un véhicule</span>
+          <span>{t.addVehicle}</span>
         </button>
       </div>
 
@@ -161,10 +181,10 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
             </div>
             <div>
               <div className="text-[11px] font-mono-code text-slate-400 uppercase">
-                Progression de la collection
+                {locale === 'fr' ? 'Progression de la collection' : 'Collection Progress'}
               </div>
               <div className="text-xl font-bold font-hud text-white tabular-nums">
-                {stats.vehiclesUnlocked} / {stats.vehiclesTotal} possédés ({garagePercent}%)
+                {stats.vehiclesUnlocked} / {stats.vehiclesTotal} {t.unlockedCount} ({garagePercent}%)
               </div>
             </div>
           </div>
@@ -182,14 +202,14 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
         {/* Category Filter Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pt-3 border-t border-white/10 pb-1">
           {[
-            { id: 'all', label: 'Tous' },
-            { id: 'unlocked', label: 'Possédés' },
-            { id: 'favorite', label: 'Favoris' },
-            { id: 'cars', label: 'Voitures & Muscle' },
-            { id: 'sport', label: 'Sport' },
-            { id: 'moto', label: 'Motos' },
-            { id: 'offroad', label: 'Tout-terrain' },
-            { id: 'special', label: 'Spéciaux & Lourds' },
+            { id: 'all', label: t.catAll },
+            { id: 'unlocked', label: t.onlyUnlocked },
+            { id: 'favorite', label: t.onlyFavorites },
+            { id: 'cars', label: `${t.catCar} & ${t.catMuscle}` },
+            { id: 'sport', label: t.catSport },
+            { id: 'moto', label: t.catMoto },
+            { id: 'offroad', label: t.catOffroad },
+            { id: 'special', label: `${t.catSpecial} & ${t.catHeavy}` },
           ].map((chip) => (
             <button
               key={chip.id}
@@ -211,9 +231,9 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
       <div className="p-2.5 jitalx-panel-deep text-[11px] font-mono-code text-slate-400 flex items-center gap-2">
         <Info className="w-3.5 h-3.5 text-[#00f0ff] shrink-0" />
         <span>
-          Les illustrations par catégorie sont fournies par JITALX et les caractéristiques par défaut
-          sont librement éditables (aucune donnée officielle éditeur). Vous pouvez importer vos
-          propres visuels sur chaque fiche.
+          {locale === 'fr'
+            ? 'Les illustrations par catégorie sont fournies par JITALX et chaque fiche (véhicule, monture, vaisseau ou équipement) est librement éditable pour tous vos jeux.'
+            : 'Category illustrations are provided by JITALX and every card (vehicle, mount, ship, or loadout) is freely editable for any game.'}
         </span>
       </div>
 
@@ -222,12 +242,8 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
         {filteredVehicles.length === 0 ? (
           <div className="col-span-full p-10 text-center jitalx-panel">
             <Car className="w-10 h-10 text-slate-500 mx-auto mb-2" />
-            <div className="text-slate-200 font-hud font-bold uppercase">
-              Aucun véhicule dans cette catégorie
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Choisissez un autre filtre ou ajoutez un nouveau véhicule à votre garage.
-            </p>
+            <div className="text-slate-200 font-hud font-bold uppercase">{t.emptyTitle}</div>
+            <p className="text-xs text-slate-400 mt-1">{t.emptyDesc}</p>
           </div>
         ) : (
           filteredVehicles.map((vehicle) => {
@@ -263,17 +279,17 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                         {vehicle.name}
                       </span>
                       <span className="text-[10px] font-mono-code text-slate-500 mt-0.5">
-                        Visuel personnalisable via Éditer
+                        {locale === 'fr' ? 'Visuel modifiable via Éditer' : 'Customize visual via Edit'}
                       </span>
                     </div>
                   )}
 
-                  {/* Contrast Scrim + Collection Status & Quick Controls */}
+                  {/* Contrast Scrim */}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0b021a] via-[#0b021a]/75 to-transparent p-3.5">
                     <div className="flex items-end justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-[11px] font-mono-code text-slate-300 truncate">
-                          {vehicle.manufacturer} · {VEHICLE_CATEGORY_LABELS[vehicle.category]}
+                          {vehicle.manufacturer} · {getVehicleCategoryLabel(vehicle.category, locale)}
                         </div>
                         <h3 className="font-hud font-bold text-lg text-white leading-tight truncate">
                           {vehicle.name}
@@ -284,7 +300,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                           vehicle.unlocked ? 'text-emerald-300' : 'text-slate-400'
                         }`}
                       >
-                        {vehicle.unlocked ? 'Possédé' : 'Verrouillé'}
+                        {vehicle.unlocked ? appCopy.common.unlocked : appCopy.common.locked}
                       </span>
                     </div>
                   </div>
@@ -295,7 +311,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                       type="button"
                       onClick={() => toggleVehicleFavorite(vehicle.id)}
                       className="p-1.5 bg-[#120428]/85 hover:bg-[#120428] border border-white/15 text-slate-300 hover:text-amber-400 cursor-pointer"
-                      title="Marquer en favori"
+                      title={appCopy.common.favorite}
                     >
                       <Star
                         className={`w-3.5 h-3.5 ${
@@ -311,7 +327,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                           ? 'bg-emerald-950/85 text-emerald-300 border-emerald-500/50'
                           : 'bg-[#120428]/85 text-slate-400 border-white/15'
                       }`}
-                      title={vehicle.unlocked ? 'Marquer non possédé' : 'Marquer possédé'}
+                      title={vehicle.unlocked ? appCopy.common.locked : appCopy.common.unlocked}
                     >
                       {vehicle.unlocked ? (
                         <Unlock className="w-3.5 h-3.5" />
@@ -323,7 +339,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                       type="button"
                       onClick={() => (isEditing ? setEditingId(null) : startEdit(vehicle))}
                       className="p-1.5 bg-[#120428]/85 hover:bg-[#120428] border border-white/15 text-slate-300 hover:text-[#00f0ff] cursor-pointer"
-                      title="Modifier ce véhicule"
+                      title={appCopy.common.edit}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -331,7 +347,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                       type="button"
                       onClick={() => deleteVehicle(vehicle.id)}
                       className="p-1.5 bg-[#120428]/85 hover:bg-[#120428] border border-white/15 text-slate-300 hover:text-rose-400 cursor-pointer"
-                      title="Supprimer ce véhicule"
+                      title={appCopy.common.delete}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -342,13 +358,13 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                 {isEditing ? (
                   <div className="p-4 space-y-3 bg-[#0b021a]">
                     <div className="text-xs font-hud font-bold uppercase text-[#00f0ff]">
-                      Modifier la fiche véhicule
+                      {appCopy.common.edit}
                     </div>
                     <input
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Nom du véhicule"
+                      placeholder={appCopy.modalNew.fieldName}
                       className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                     />
                     <div className="grid grid-cols-2 gap-2">
@@ -356,7 +372,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                         type="text"
                         value={editManufacturer}
                         onChange={(e) => setEditManufacturer(e.target.value)}
-                        placeholder="Constructeur"
+                        placeholder={appCopy.modalNew.fieldManufacturer}
                         className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                       />
                       <select
@@ -364,18 +380,20 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                         onChange={(e) => setEditCategory(e.target.value as VehicleCategory)}
                         className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                       >
-                        <option value="car">Voiture</option>
-                        <option value="sport">Sport</option>
-                        <option value="muscle">Muscle / Coupé</option>
-                        <option value="moto">Moto</option>
-                        <option value="offroad">Tout-terrain</option>
-                        <option value="special">Spécial</option>
-                        <option value="heavy">Lourd / Blindé</option>
+                        <option value="car">{t.catCar}</option>
+                        <option value="sport">{t.catSport}</option>
+                        <option value="muscle">{t.catMuscle}</option>
+                        <option value="moto">{t.catMoto}</option>
+                        <option value="offroad">{t.catOffroad}</option>
+                        <option value="special">{t.catSpecial}</option>
+                        <option value="heavy">{t.catHeavy}</option>
                       </select>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className="text-[10px] font-mono-code text-slate-400">Vitesse</label>
+                        <label className="text-[10px] font-mono-code text-slate-400">
+                          {t.speed}
+                        </label>
                         <input
                           type="number"
                           min={1}
@@ -386,7 +404,9 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-mono-code text-slate-400">Maniab.</label>
+                        <label className="text-[10px] font-mono-code text-slate-400">
+                          {t.handling}
+                        </label>
                         <input
                           type="number"
                           min={1}
@@ -397,7 +417,9 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-mono-code text-slate-400">Blindage</label>
+                        <label className="text-[10px] font-mono-code text-slate-400">
+                          {t.armor}
+                        </label>
                         <input
                           type="number"
                           min={1}
@@ -412,34 +434,37 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                       type="text"
                       value={editLocation}
                       onChange={(e) => setEditLocation(e.target.value)}
-                      placeholder="Lieu / Garage"
+                      placeholder={t.locationLabel}
                       className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                     />
                     <input
                       type="text"
                       value={editNotes}
                       onChange={(e) => setEditNotes(e.target.value)}
-                      placeholder="Notes personnelles..."
+                      placeholder={locale === 'fr' ? 'Notes personnelles...' : 'Personal notes...'}
                       className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                     />
                     <div className="space-y-1.5 pt-1 border-t border-white/10">
                       <label className="text-[10px] font-mono-code text-slate-400 uppercase block">
-                        Image personnalisée (URL ou fichier local)
+                        {t.uploadPhoto}
                       </label>
                       <input
                         type="url"
                         value={editImageUrl}
-                        onChange={(e) => setEditImageUrl(e.target.value)}
-                        placeholder="https://... (vide = visuel catégorie)"
+                        onChange={(e) => {
+                          setEditImageUrl(e.target.value);
+                          if (imageError) setImageError(null);
+                        }}
+                        placeholder={t.photoUrlPlaceholder}
                         className="w-full jitalx-input px-2.5 py-1.5 text-xs font-mono-code"
                       />
                       <div className="flex items-center gap-2">
                         <label className="flex-1 py-1.5 px-2.5 bg-[#170632] hover:bg-[#1e0940] border border-white/15 text-[11px] font-mono-code text-slate-200 flex items-center justify-center gap-1.5 cursor-pointer">
                           <Upload className="w-3 h-3 text-[#00f0ff]" />
-                          <span>Importer photo</span>
+                          <span>{locale === 'fr' ? 'Importer photo' : 'Upload image'}</span>
                           <input
                             type="file"
-                            accept="image/png,image/jpeg,image/webp"
+                            accept="image/png,image/jpeg,image/webp,image/gif"
                             onChange={handleImageFileUpload}
                             className="hidden"
                           />
@@ -450,7 +475,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                             onClick={() => setEditImageUrl('')}
                             className="px-2.5 py-1.5 bg-slate-900 text-[11px] font-mono-code text-slate-300 hover:text-white cursor-pointer"
                           >
-                            Réinit.
+                            {appCopy.common.reset}
                           </button>
                         )}
                       </div>
@@ -465,7 +490,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                         className="px-3 py-1.5 bg-slate-900 text-xs text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
-                        <span>Annuler</span>
+                        <span>{appCopy.common.cancel}</span>
                       </button>
                       <button
                         type="button"
@@ -473,7 +498,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                         className="px-3 py-1.5 bg-[#00f0ff] text-[#120428] text-xs font-hud font-bold uppercase flex items-center gap-1 cursor-pointer"
                       >
                         <Check className="w-3.5 h-3.5" />
-                        <span>Enregistrer</span>
+                        <span>{appCopy.common.save}</span>
                       </button>
                     </div>
                   </div>
@@ -483,7 +508,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                       <div>
                         <div className="flex justify-between text-[11px] font-mono-code text-slate-400 mb-0.5">
                           <span className="flex items-center gap-1">
-                            <Zap className="w-3 h-3 text-[#00f0ff]" /> Vitesse
+                            <Zap className="w-3 h-3 text-[#00f0ff]" /> {t.speed}
                           </span>
                           <span className="text-[#00f0ff] font-semibold tabular-nums">
                             {vehicle.speed}/100
@@ -500,7 +525,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                       <div>
                         <div className="flex justify-between text-[11px] font-mono-code text-slate-400 mb-0.5">
                           <span className="flex items-center gap-1">
-                            <Gauge className="w-3 h-3 text-emerald-400" /> Maniabilité
+                            <Gauge className="w-3 h-3 text-emerald-400" /> {t.handling}
                           </span>
                           <span className="text-emerald-400 font-semibold tabular-nums">
                             {vehicle.handling}/100
@@ -517,7 +542,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onOpenNewItemModal }
                       <div>
                         <div className="flex justify-between text-[11px] font-mono-code text-slate-400 mb-0.5">
                           <span className="flex items-center gap-1">
-                            <Shield className="w-3 h-3 text-[#ff7b00]" /> Blindage
+                            <Shield className="w-3 h-3 text-[#ff7b00]" /> {t.armor}
                           </span>
                           <span className="text-[#ff7b00] font-semibold tabular-nums">
                             {vehicle.armor}/100

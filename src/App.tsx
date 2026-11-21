@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AppRoute } from './types';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GameProvider, useGame } from './context/GameContext';
-import { LocaleProvider } from './context/LocaleContext';
+import { LocaleProvider, useLocale } from './context/LocaleContext';
 import { ToastProvider } from './context/ToastContext';
+import { DISCORD_INVITE_URL, DiscordIcon } from './config/community';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CyberBackground } from './components/CyberBackground';
 import { Header } from './components/Header';
@@ -65,6 +66,7 @@ const AppContent: React.FC = () => {
     clearStorageError,
   } = useGame();
   const { customProfiles, cloudError, clearCloudError } = useAuth();
+  const { appCopy } = useLocale();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDefaultType, setModalDefaultType] = useState<NewItemModalType>('mission');
   const [activeRoute, setActiveRoute] = useState<AppRoute>(() =>
@@ -185,12 +187,13 @@ const AppContent: React.FC = () => {
               <span>{storageError || cloudError}</span>
             </div>
             <button
+              type="button"
               onClick={() => {
                 if (storageError) clearStorageError();
                 if (cloudError) clearCloudError();
               }}
               className="p-1 text-rose-300 hover:text-white cursor-pointer"
-              aria-label="Fermer l'alerte"
+              aria-label={appCopy.common.dismissAlert}
             >
               <X className="w-4 h-4" />
             </button>
@@ -204,24 +207,33 @@ const AppContent: React.FC = () => {
 
       <footer className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-20 md:pb-5 pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/5 mt-8">
         <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono-code text-slate-400">
-          <button onClick={() => navigate('landing')} className="hover:text-[#00f0ff] cursor-pointer">
-            Présentation
+          <button type="button" onClick={() => navigate('landing')} className="hover:text-[#00f0ff] cursor-pointer">
+            {appCopy.footer.overview}
           </button>
-          <button onClick={() => navigate('demo')} className="hover:text-[#00f0ff] cursor-pointer">
-            Démo
+          <button type="button" onClick={() => navigate('demo')} className="hover:text-[#00f0ff] cursor-pointer">
+            {appCopy.footer.demo}
           </button>
-          <button onClick={() => navigate('pricing')} className="hover:text-[#00f0ff] cursor-pointer">
-            Tarifs
+          <button type="button" onClick={() => navigate('pricing')} className="hover:text-[#00f0ff] cursor-pointer">
+            {appCopy.footer.pricing}
           </button>
-          <button onClick={() => navigate('streamers')} className="hover:text-[#00f0ff] cursor-pointer">
-            Streamers (EN)
+          <button type="button" onClick={() => navigate('streamers')} className="hover:text-[#00f0ff] cursor-pointer">
+            {appCopy.footer.streamers}
           </button>
-          <button onClick={() => navigate('account')} className="hover:text-[#00f0ff] cursor-pointer">
-            Compte &amp; Cloud
+          <button type="button" onClick={() => navigate('account')} className="hover:text-[#00f0ff] cursor-pointer">
+            {appCopy.footer.accountCloud}
           </button>
+          <a
+            href={DISCORD_INVITE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-[#8c96ff] hover:text-white transition-colors"
+          >
+            <DiscordIcon className="w-3.5 h-3.5" />
+            <span>{appCopy.footer.discord}</span>
+          </a>
         </div>
         <span className="text-[11px] font-mono-code text-slate-500/90 select-none">
-          JITALX · © 2026 10JITAL Production
+          JITALX · © 2026 10JITAL PROD
         </span>
       </footer>
 

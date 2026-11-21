@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { AppRoute, StreamPlatform, UniverseTheme } from '../types';
+import { AppRoute, GameProfile, PaymentBackendStatus, StreamPlatform, UniverseTheme } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGame } from '../context/GameContext';
+import { useLocale, LanguageSwitcher } from '../context/LocaleContext';
+import { INITIAL_PROFILES } from '../data/initialData';
 import {
-  GUMROAD_PRODUCT_URL,
-  SUBSCRIPTION_PLANS,
-  isStripeConfigured,
+  buildGumroadCheckoutUrl,
+  fetchPaymentBackendStatus,
+  openStripeBillingPortal,
   STRIPE_CONFIG,
 } from '../services/stripeConfig';
 import { cyberAudio } from '../utils/cyberAudio';
@@ -26,6 +28,9 @@ import {
   ArrowRight,
   Save,
   ExternalLink,
+  Pencil,
+  Download,
+  X,
 } from 'lucide-react';
 
 interface AccountPageProps {
@@ -33,8 +38,9 @@ interface AccountPageProps {
 }
 
 interface ActionFeedback {
-  type: 'success' | 'error';
+  type: 'success' | 'warning' | 'error';
   text: string;
+  showJsonExportAction?: boolean;
 }
 
 export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
@@ -48,10 +54,12 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
     clearCloudError,
     customProfiles,
     cloudSnapshots,
+    getIdToken,
     signInWithGoogle,
     signOut,
     updateAccountProfile,
     createCustomProfile,
+    updateCustomProfile,
     deleteCustomProfile,
     saveCloudSnapshot,
     deleteCloudSnapshot,
@@ -62,16 +70,37 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
     activeProfile,
     setActiveProfile,
     addLocalCustomProfile,
+    updateLocalCustomProfile,
     removeLocalCustomProfile,
     missions,
     collectibles,
     vehicles,
     objectives,
     notes,
+    mapMarkers,
+    customMapUrl,
     overallProgress,
     stats,
+    exportBackup,
     restoreSnapshotData,
   } = useGame();
+
+  const { locale, copy } = useLocale();
+  const t = copy.account;
+
+  const [paymentStatus, setPaymentStatus] = useState<PaymentBackendStatus | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [billingFeedback, setBillingFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void fetchPaymentBackendStatus().then((status) => {
+      if (active) setPaymentStatus(status);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Profile Editor Form
   const [displayName, setDisplayName] = useState('');
@@ -87,9 +116,18 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
   const [newProfUniverse, setNewProfUniverse] = useState('');
   const [newProfTag, setNewProfTag] = useState('Runner_01');
   const [newProfTheme, setNewProfTheme] = useState<UniverseTheme>('sunset-neon');
-  const [newProfIcon, setNewProfIcon] = useState<'Sun' | 'Zap' | 'Flame' | 'Gamepad2'>('Sun');
+  const [newProfIcon, setNewProfIcon] = useState<'Sun' | 'Zap' | 'Flame' | 'Gamepad2'>('Gamepad2');
+  const [newProfPreset, setNewProfPreset] = useState<'empty' | 'starter'>('empty');
   const [creatingProfile, setCreatingProfile] = useState(false);
   const [customProfileFeedback, setCustomProfileFeedback] = useState<ActionFeedback | null>(null);
+
+  // Inline Edit Custom Profile state
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editProfName, setEditProfName] = useState('');
+  const [editProfUniverse, setEditProfUniverse] = useState('');
+  const [editProfTag, setEditProfTag] = useState('');
+  const [editProfTheme, setEditProfTheme] = useState<UniverseTheme>('sunset-neon');
+  const [editProfIcon, setEditProfIcon] = useState<'Sun' | 'Zap' | 'Flame' | 'Gamepad2'>('Gamepad2');
 
   // Cloud Snapshots state
   const [syncingCloud, setSyncingCloud] = useState(false);
@@ -105,9 +143,10 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
     }
   }, [account]);
 
-  const currentPlan =
-    SUBSCRIPTION_PLANS.find((p) => p.id === (account?.subscriptionTier || 'free')) ||
-    SUBSCRIPTION_PLANS[0];
+  const currentTier = account?.subscriptionTier || 'free';
+  const currentStatus = account?.subscriptionStatus || 'active';
+  const currentPlanCopy = copy.plans[currentTier] || copy.plans.free;
+  const gumroadHref = buildGumroadCheckoutUrl({ email: user?.email, uid: user?.uid });
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,15 +162,9 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
     });
     if (result.ok) {
       cyberAudio.playFanfare();
-      setProfileFeedback({
-        type: 'success',
-        text: 'Profil enregistré dans Firestore pour votre compte.',
-      });
+      setProfileFeedback({ type: 'success', text: t.profileSavedMsg });
     } else {
-      setProfileFeedback({
-        type: 'error',
-        text: result.error || 'Erreur lors de la sauvegarde du profil.',
-      });
+      setProfileFeedback({ type: 'error', text: result.error || t.profileSaveErr });
     }
     setSavingProfile(false);
   };
@@ -157,33 +190,83 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
         setNewProfUniverse('');
         setCustomProfileFeedback({
           type: 'success',
-          text: `Profil "${result.profile.name}" créé dans votre espace Cloud.`,
+          text: t.cloudProfileCreated.replace('{name}', result.profile.name),
         });
       } else {
         setCustomProfileFeedback({
           type: 'error',
-          text: result.error || 'Impossible de créer le profil Cloud.',
+          text: result.error || t.cloudProfileCreateErr,
         });
       }
     } else {
-      const localCreated = addLocalCustomProfile({
-        name: newProfName.trim(),
-        universe: newProfUniverse.trim(),
-        playerTag: newProfTag.trim() || 'Runner_01',
-        avatarIcon: newProfIcon,
-        theme: newProfTheme,
-      });
+      const localCreated = addLocalCustomProfile(
+        {
+          name: newProfName.trim(),
+          universe: newProfUniverse.trim(),
+          playerTag: newProfTag.trim() || 'Runner_01',
+          avatarIcon: newProfIcon,
+          theme: newProfTheme,
+        },
+        newProfPreset
+      );
       setActiveProfile(localCreated);
       cyberAudio.playChirp();
       setNewProfName('');
       setNewProfUniverse('');
       setCustomProfileFeedback({
         type: 'success',
-        text: `Profil local "${localCreated.name}" créé et activé.`,
+        text: t.localProfileCreated.replace('{name}', localCreated.name),
       });
     }
 
     setCreatingProfile(false);
+  };
+
+  const startEditProfile = (p: GameProfile) => {
+    setEditingProfileId(p.id);
+    setEditProfName(p.name);
+    setEditProfUniverse(p.universe);
+    setEditProfTag(p.playerTag);
+    setEditProfTheme(p.theme || 'sunset-neon');
+    const validIcon = ['Sun', 'Zap', 'Flame', 'Gamepad2'].includes(p.avatarIcon)
+      ? (p.avatarIcon as 'Sun' | 'Zap' | 'Flame' | 'Gamepad2')
+      : 'Gamepad2';
+    setEditProfIcon(validIcon);
+  };
+
+  const handleSaveEditProfile = async (profileId: string, isCloudCustom: boolean) => {
+    if (!editProfName.trim() || !editProfUniverse.trim()) return;
+    setCustomProfileFeedback(null);
+    const payload = {
+      name: editProfName.trim(),
+      universe: editProfUniverse.trim(),
+      playerTag: editProfTag.trim() || 'Runner_01',
+      theme: editProfTheme,
+      avatarIcon: editProfIcon,
+    };
+
+    if (isCloudCustom && user) {
+      const res = await updateCustomProfile(profileId, payload);
+      if (!res.ok) {
+        setCustomProfileFeedback({
+          type: 'error',
+          text: res.error || (locale === 'fr' ? 'Mise à jour Cloud impossible.' : 'Cloud update failed.'),
+        });
+        return;
+      }
+    } else {
+      updateLocalCustomProfile(profileId, payload);
+    }
+
+    setEditingProfileId(null);
+    cyberAudio.playChirp();
+    setCustomProfileFeedback({
+      type: 'success',
+      text:
+        locale === 'fr'
+          ? `Profil « ${payload.name} » mis à jour.`
+          : `Profile "${payload.name}" updated.`,
+    });
   };
 
   const handleDeleteGameProfile = async (profileId: string, isCloudCustom: boolean) => {
@@ -193,14 +276,54 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
       if (!res.ok) {
         setCustomProfileFeedback({
           type: 'error',
-          text: res.error || 'Impossible de supprimer ce profil Cloud.',
+          text: res.error || t.cloudProfileDeleteErr,
         });
         return;
       }
-      setCustomProfileFeedback({ type: 'success', text: 'Profil Cloud supprimé.' });
+      if (activeProfile.id === profileId) {
+        setActiveProfile(INITIAL_PROFILES[0]);
+      }
+      setCustomProfileFeedback({ type: 'success', text: t.cloudProfileDeleted });
     } else {
       removeLocalCustomProfile(profileId);
-      setCustomProfileFeedback({ type: 'success', text: 'Profil local supprimé.' });
+      setCustomProfileFeedback({ type: 'success', text: t.localProfileDeleted });
+    }
+  };
+
+  const handleOpenStripePortal = async () => {
+    setBillingFeedback(null);
+    if (STRIPE_CONFIG.portalUrl) {
+      window.location.href = STRIPE_CONFIG.portalUrl;
+      return;
+    }
+    if (!user || !account?.stripeCustomerId) {
+      setBillingFeedback(
+        locale === 'fr'
+          ? 'Aucun abonnement Stripe actif associé à ce compte.'
+          : 'No active Stripe customer record is linked to this account yet.'
+      );
+      return;
+    }
+    setPortalLoading(true);
+    const token = await getIdToken();
+    if (!token) {
+      setBillingFeedback(
+        locale === 'fr'
+          ? 'Session expirée : reconnectez-vous avec Google.'
+          : 'Session expired: please sign in with Google again.'
+      );
+      setPortalLoading(false);
+      return;
+    }
+    const res = await openStripeBillingPortal({
+      firebaseIdToken: token,
+      customerId: account.stripeCustomerId,
+    });
+    setPortalLoading(false);
+    if (res.ok && res.url) {
+      window.location.href = res.url;
+    } else {
+      setBillingFeedback(res.error || 'Stripe Billing Portal unavailable.');
     }
   };
 
@@ -221,17 +344,40 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
       vehicles,
       objectives,
       notes,
+      mapMarkers,
+      customMapUrl,
     });
     if (result.ok) {
       cyberAudio.playFanfare();
-      setCloudFeedback({
-        type: 'success',
-        text: `Snapshot "${activeProfile.name}" (${overallProgress}%) enregistré dans Firestore.`,
-      });
+      const omittedCount = result.omittedVehicleImages || 0;
+      const omittedMap = Boolean(result.omittedCustomMap);
+      if (omittedCount > 0 || omittedMap) {
+        const detail =
+          locale === 'fr'
+            ? `Snapshot « ${activeProfile.name} » (${overallProgress}%) enregistré dans Firestore. Attention : ${omittedCount} image(s) locale(s) de véhicule${
+                omittedMap ? ' + carte locale base64' : ''
+              } non incluse(s) (limite 1 Mo Firestore). Utilisez l’Export JSON pour archiver vos images locales, ou utilisez des URL HTTPS.`
+            : `Snapshot "${activeProfile.name}" (${overallProgress}%) saved to Firestore. Warning: ${omittedCount} local vehicle image(s)${
+                omittedMap ? ' + base64 custom map' : ''
+              } were omitted due to Firestore 1 MB limits. Use JSON Export below to archive local images, or host images via HTTPS URLs.`;
+        setCloudFeedback({
+          type: 'warning',
+          text: detail,
+          showJsonExportAction: true,
+        });
+      } else {
+        setCloudFeedback({
+          type: 'success',
+          text: t.snapshotSavedMsg
+            .replace('{name}', activeProfile.name)
+            .replace('{progress}', String(overallProgress)),
+        });
+      }
     } else {
       setCloudFeedback({
         type: 'error',
-        text: result.error || 'Échec de la sauvegarde Cloud.',
+        text: result.error || t.snapshotSaveErr,
+        showJsonExportAction: true,
       });
     }
     setSyncingCloud(false);
@@ -241,112 +387,114 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
     setCloudFeedback(null);
     const result = await deleteCloudSnapshot(snapshotId);
     if (result.ok) {
-      setCloudFeedback({ type: 'success', text: 'Snapshot supprimé du Cloud.' });
+      setCloudFeedback({ type: 'success', text: t.snapshotDeletedMsg });
     } else {
       setCloudFeedback({
         type: 'error',
-        text: result.error || 'Impossible de supprimer ce snapshot.',
+        text: result.error || t.snapshotDeleteErr,
       });
     }
   };
 
+  const inputClass =
+    'w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-[#00f0ff] focus:outline-none transition-colors';
+
   return (
-    <div className="min-h-screen bg-[#120428] text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#0a0910] text-slate-100 flex flex-col font-sans overflow-x-hidden">
       <CommercialNav activeRoute="account" onNavigate={onNavigate} />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ff2a85]/25 pb-6">
-          <div>
-            <div className="text-xs font-mono-code text-[#00f0ff] uppercase tracking-widest">
-              Espace Membre · Profils · Snapshots Cloud
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 space-y-8">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 border-b border-white/[0.08] pb-7">
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-xs font-mono-code text-[#00f0ff] uppercase tracking-[0.14em]">
+                {t.kicker}
+              </p>
+              <LanguageSwitcher />
             </div>
-            <h1 className="text-3xl font-hud font-bold text-white mt-1">
-              Compte &amp; Sauvegardes Cloud JITALX
+            <h1 className="text-3xl sm:text-4xl font-hud font-bold text-white tracking-tight">
+              {t.heading}
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
+              type="button"
               onClick={() => onNavigate('app')}
-              className="px-4 py-2 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#00f0ff]/45 text-[#00f0ff] text-xs font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/15 text-[#00f0ff] text-xs font-semibold tracking-wide flex items-center gap-1.5 cursor-pointer transition-colors"
             >
-              <span>Retour au HUD</span>
+              <span>{t.backToHud}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
             {user && (
               <button
+                type="button"
                 onClick={() => void signOut()}
-                className="px-4 py-2 bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/40 text-rose-200 text-xs font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/40 text-rose-200 text-xs font-semibold tracking-wide flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>Déconnexion</span>
+                <span>{t.signOut}</span>
               </button>
             )}
           </div>
         </div>
 
         {cloudError && (
-          <div className="p-3.5 bg-rose-950/60 border border-rose-500/60 text-xs font-mono-code text-rose-200 flex items-center justify-between gap-3">
+          <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-500/60 text-xs font-mono-code text-rose-200 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{cloudError}</span>
             </div>
             <button
+              type="button"
               onClick={clearCloudError}
               className="text-rose-300 hover:text-white underline cursor-pointer shrink-0"
             >
-              Fermer
+              {t.dismiss}
             </button>
           </div>
         )}
 
         {/* Auth Panel when Signed Out */}
         {isAuthReady && !user && (
-          <div className="bg-[#180633] border border-[#ff2a85]/45 p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="rounded-2xl bg-[#110e1c] border border-[#ff2a85]/40 p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-2xl">
-              <div className="flex items-center gap-2 text-[#00f0ff] text-xs font-mono-code uppercase">
+              <div className="flex items-center gap-2 text-[#00f0ff] text-xs font-mono-code uppercase tracking-wider">
                 <ShieldCheck className="w-4 h-4" />
-                <span>Authentification Firebase · Isolation par UID</span>
+                <span>{t.authKicker}</span>
               </div>
-              <h2 className="text-2xl font-hud font-bold text-white">
-                Connectez-vous pour enregistrer vos profils et snapshots dans le Cloud
-              </h2>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                Votre compte Google crée un espace privé dans Firestore (strictement isolé par
-                identifiant utilisateur) pour sauvegarder manuellement des snapshots de votre
-                progression et synchroniser vos profils personnalisés.
-              </p>
+              <h2 className="text-2xl font-hud font-bold text-white">{t.authHeading}</h2>
+              <p className="text-sm text-slate-300 leading-relaxed">{t.authDesc}</p>
               {authError && (
-                <p className="text-xs font-mono-code text-rose-300 bg-rose-950/50 border border-rose-500/40 p-2.5">
+                <p className="text-xs font-mono-code text-rose-300 bg-rose-950/50 border border-rose-500/40 rounded-lg p-2.5">
                   {authError}
                 </p>
               )}
             </div>
 
             <button
+              type="button"
               onClick={() => void signInWithGoogle()}
               disabled={isSigningIn}
-              className="px-6 py-3.5 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-widest flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 shadow-[0_0_24px_rgba(255,42,133,0.45)] disabled:opacity-60"
+              className="px-6 py-3.5 rounded-lg bg-gradient-to-r from-[#ff2a85] via-[#ff5c4d] to-[#ff7b00] hover:brightness-110 text-white font-semibold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 shadow-[0_10px_28px_-8px_rgba(255,42,133,0.5)] disabled:opacity-60 transition-all"
             >
               <LogIn className="w-4 h-4" />
-              <span>{isSigningIn ? 'Connexion en cours...' : 'Continuer avec Google'}</span>
+              <span>{isSigningIn ? t.signingInBtn : t.signInBtn}</span>
             </button>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left 7 cols: Account Profile & Game Universe Profiles */}
+          {/* Left 7 cols: Account Profile & Multi-Game Profiles Manager */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="bg-[#180633] border border-[#ff2a85]/30 p-6 space-y-5">
-              <div className="flex items-center justify-between border-b border-[#ff2a85]/20 pb-3">
+            <div className="rounded-2xl bg-[#110e1c] border border-white/10 p-6 space-y-5">
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3.5">
                 <div className="flex items-center gap-2.5">
                   <User className="w-5 h-5 text-[#00f0ff]" />
-                  <h2 className="font-hud font-bold text-lg text-white">
-                    Identité Joueur &amp; Streamer
-                  </h2>
+                  <h2 className="font-hud font-bold text-lg text-white">{t.identityTitle}</h2>
                 </div>
                 {user && (
-                  <span className="text-xs font-mono-code text-emerald-400 truncate max-w-[200px]">
+                  <span className="text-xs font-mono-code text-emerald-400 truncate max-w-[220px]">
                     {user.email}
                   </span>
                 )}
@@ -357,7 +505,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label htmlFor="acc-display" className="text-xs font-mono-code text-slate-300 block">
-                        Nom affiché
+                        {t.displayNameLabel}
                       </label>
                       <input
                         id="acc-display"
@@ -366,13 +514,13 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                         maxLength={80}
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
-                        className="w-full bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-sm text-white focus:border-[#00f0ff]"
+                        className={inputClass}
                       />
                     </div>
 
                     <div className="space-y-1.5">
                       <label htmlFor="acc-tag" className="text-xs font-mono-code text-slate-300 block">
-                        Gamer Tag / Pseudo OBS
+                        {t.gamerTagLabel}
                       </label>
                       <input
                         id="acc-tag"
@@ -381,7 +529,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                         maxLength={40}
                         value={gamerTag}
                         onChange={(e) => setGamerTag(e.target.value)}
-                        className="w-full bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-sm text-white focus:border-[#00f0ff]"
+                        className={inputClass}
                       />
                     </div>
                   </div>
@@ -389,57 +537,57 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
                       <label htmlFor="acc-channel" className="text-xs font-mono-code text-slate-300 block">
-                        Chaîne de stream
+                        {t.streamChannelLabel}
                       </label>
                       <input
                         id="acc-channel"
                         type="text"
                         maxLength={120}
-                        placeholder="twitch.tv/votrechaine"
+                        placeholder={t.streamChannelPlaceholder}
                         value={streamChannel}
                         onChange={(e) => setStreamChannel(e.target.value)}
-                        className="w-full bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-[#00f0ff]"
+                        className={inputClass}
                       />
                     </div>
 
                     <div className="space-y-1.5">
                       <label htmlFor="acc-platform" className="text-xs font-mono-code text-slate-300 block">
-                        Plateforme principale
+                        {t.platformLabel}
                       </label>
                       <select
                         id="acc-platform"
                         value={streamPlatform}
                         onChange={(e) => setStreamPlatform(e.target.value as StreamPlatform)}
-                        className="w-full bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-sm text-white focus:border-[#00f0ff]"
+                        className={inputClass}
                       >
                         <option value="twitch">Twitch</option>
                         <option value="youtube">YouTube</option>
                         <option value="tiktok">TikTok Live</option>
                         <option value="kick">Kick</option>
-                        <option value="multi">Multi-stream</option>
+                        <option value="multi">{t.platformMulti}</option>
                       </select>
                     </div>
 
                     <div className="space-y-1.5">
                       <label htmlFor="acc-theme" className="text-xs font-mono-code text-slate-300 block">
-                        Thème favori
+                        {t.themeLabel}
                       </label>
                       <select
                         id="acc-theme"
                         value={preferredTheme}
                         onChange={(e) => setPreferredTheme(e.target.value as UniverseTheme)}
-                        className="w-full bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-sm text-white focus:border-[#00f0ff]"
+                        className={inputClass}
                       >
-                        <option value="sunset-neon">Sunset Néon</option>
-                        <option value="cyber-grid">Secteur Cyber</option>
-                        <option value="open-world">Monde Libre</option>
+                        <option value="sunset-neon">{t.themeSunset}</option>
+                        <option value="cyber-grid">{t.themeCyber}</option>
+                        <option value="open-world">{t.themeOpenWorld}</option>
                       </select>
                     </div>
                   </div>
 
                   {profileFeedback && (
                     <div
-                      className={`text-xs font-mono-code p-2.5 border flex items-center gap-2 ${
+                      className={`text-xs font-mono-code p-3 rounded-lg border flex items-center gap-2 ${
                         profileFeedback.type === 'success'
                           ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300'
                           : 'bg-rose-950/50 border-rose-500/50 text-rose-200'
@@ -457,30 +605,33 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                   <button
                     type="submit"
                     disabled={savingProfile}
-                    className="px-5 py-2.5 bg-[#00f0ff] hover:bg-[#4ff6ff] text-[#120428] font-hud font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2.5 rounded-lg bg-[#00f0ff] hover:bg-[#4ff6ff] text-[#0a0910] font-semibold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer disabled:opacity-50 transition-colors"
                   >
                     <Save className="w-4 h-4" />
-                    <span>{savingProfile ? 'Enregistrement...' : 'Enregistrer le profil'}</span>
+                    <span>{savingProfile ? t.savingProfileBtn : t.saveProfileBtn}</span>
                   </button>
                 </form>
               ) : (
-                <p className="text-sm text-slate-400">
-                  Connectez-vous avec Google ci-dessus pour personnaliser votre profil Cloud.
-                </p>
+                <p className="text-sm text-slate-400">{t.signInToEditProfile}</p>
               )}
             </div>
 
-            {/* Game Universe Profiles Manager */}
-            <div className="bg-[#180633] border border-[#ff2a85]/30 p-6 space-y-5">
-              <div className="flex items-center justify-between border-b border-[#ff2a85]/20 pb-3">
+            {/* Multi-Game Universe Profiles Manager (Isolated Workspaces + Inline Edit) */}
+            <div className="rounded-2xl bg-[#110e1c] border border-white/10 p-6 space-y-5">
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3.5">
                 <div className="flex items-center gap-2.5">
                   <Gamepad2 className="w-5 h-5 text-[#ff7b00]" />
-                  <h2 className="font-hud font-bold text-lg text-white">
-                    Profils &amp; Univers de Jeu
-                  </h2>
+                  <div>
+                    <h2 className="font-hud font-bold text-lg text-white">{t.profilesTitle}</h2>
+                    <p className="text-[11px] text-slate-400">
+                      {locale === 'fr'
+                        ? 'Chaque profil isole totalement ses missions, collectibles, garage, carte, notes et statistiques.'
+                        : 'Each game profile strictly isolates its own missions, collectibles, garage, map, notes, and analytics.'}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-xs font-mono-code text-slate-400">
-                  {profiles.length} profils disponibles
+                <span className="text-xs font-mono-code text-slate-400 tabular-nums shrink-0">
+                  {profiles.length} {t.profilesAvailable}
                 </span>
               </div>
 
@@ -488,16 +639,97 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                 {profiles.map((p) => {
                   const isActive = activeProfile.id === p.id;
                   const isCloudCustom = customProfiles.some((cp) => cp.id === p.id);
+                  const isEditing = editingProfileId === p.id;
+
+                  if (isEditing) {
+                    return (
+                      <div
+                        key={p.id}
+                        className="p-3.5 rounded-xl border border-[#00f0ff]/60 bg-black/50 space-y-2.5 sm:col-span-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono-code text-[#00f0ff] uppercase">
+                            {locale === 'fr' ? 'Modifier le profil de jeu' : 'Edit Game Profile'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditingProfileId(null)}
+                            className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            maxLength={60}
+                            value={editProfName}
+                            onChange={(e) => setEditProfName(e.target.value)}
+                            className="rounded-lg bg-black/50 border border-white/15 px-2.5 py-1.5 text-xs text-white"
+                            placeholder={t.profileNamePlaceholder}
+                          />
+                          <input
+                            type="text"
+                            maxLength={60}
+                            value={editProfUniverse}
+                            onChange={(e) => setEditProfUniverse(e.target.value)}
+                            className="rounded-lg bg-black/50 border border-white/15 px-2.5 py-1.5 text-xs text-white"
+                            placeholder={t.profileUniversePlaceholder}
+                          />
+                          <input
+                            type="text"
+                            maxLength={40}
+                            value={editProfTag}
+                            onChange={(e) => setEditProfTag(e.target.value)}
+                            className="rounded-lg bg-black/50 border border-white/15 px-2.5 py-1.5 text-xs text-white"
+                            placeholder={t.profileTagPlaceholder}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          <select
+                            value={editProfTheme}
+                            onChange={(e) => setEditProfTheme(e.target.value as UniverseTheme)}
+                            className="rounded-lg bg-black/50 border border-white/15 px-2.5 py-1.5 text-xs text-white"
+                          >
+                            <option value="sunset-neon">{t.themeOptSunset}</option>
+                            <option value="cyber-grid">{t.themeOptCyber}</option>
+                            <option value="open-world">{t.themeOptOpenWorld}</option>
+                          </select>
+                          <select
+                            value={editProfIcon}
+                            onChange={(e) =>
+                              setEditProfIcon(e.target.value as 'Sun' | 'Zap' | 'Flame' | 'Gamepad2')
+                            }
+                            className="rounded-lg bg-black/50 border border-white/15 px-2.5 py-1.5 text-xs text-white"
+                          >
+                            <option value="Sun">{t.iconSun}</option>
+                            <option value="Flame">{t.iconFlame}</option>
+                            <option value="Zap">{t.iconZap}</option>
+                            <option value="Gamepad2">{t.iconGamepad}</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => void handleSaveEditProfile(p.id, isCloudCustom)}
+                            className="px-3 py-1.5 rounded-lg bg-[#00f0ff] text-[#0a0910] font-semibold text-xs uppercase cursor-pointer"
+                          >
+                            {locale === 'fr' ? 'Valider' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={p.id}
-                      className={`p-3.5 border flex items-center justify-between gap-2 ${
+                      className={`p-3.5 rounded-xl border flex items-center justify-between gap-2 transition-colors ${
                         isActive
-                          ? 'bg-[#ff2a85]/15 border-[#ff2a85]'
-                          : 'bg-[#0e0320] border-[#ff2a85]/25'
+                          ? 'bg-[#ff2a85]/12 border-[#ff2a85]/65'
+                          : 'bg-black/35 border-white/[0.08] hover:border-white/20'
                       }`}
                     >
                       <button
+                        type="button"
                         onClick={() => {
                           cyberAudio.playClick();
                           setActiveProfile(p);
@@ -508,24 +740,36 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                           {p.name}
                         </div>
                         <div className="text-xs font-mono-code text-slate-400 truncate">
-                          {p.universe} · {p.isCustom ? (isCloudCustom ? 'Cloud' : 'Local') : 'Démo'}
+                          {p.universe} ·{' '}
+                          {p.isCustom ? (isCloudCustom ? t.badgeCloud : t.badgeLocal) : t.badgeDemo}
                         </div>
                       </button>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         {isActive && (
-                          <span className="text-[10px] font-mono-code text-[#00f0ff] uppercase">
-                            Actif
+                          <span className="text-[10px] font-mono-code text-[#00f0ff] uppercase font-semibold mr-1">
+                            {t.badgeActive}
                           </span>
                         )}
                         {p.isCustom && (
-                          <button
-                            onClick={() => void handleDeleteGameProfile(p.id, isCloudCustom)}
-                            className="p-1.5 text-slate-400 hover:text-rose-400 cursor-pointer"
-                            title="Supprimer ce profil personnalisé"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEditProfile(p)}
+                              className="p-1.5 rounded-md text-slate-400 hover:text-[#00f0ff] hover:bg-white/[0.05] cursor-pointer transition-colors"
+                              title={locale === 'fr' ? 'Modifier ce profil' : 'Edit this profile'}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteGameProfile(p.id, isCloudCustom)}
+                              className="p-1.5 rounded-md text-slate-400 hover:text-rose-400 hover:bg-white/[0.05] cursor-pointer transition-colors"
+                              title={t.deleteProfileTitle}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -535,7 +779,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
 
               {customProfileFeedback && (
                 <div
-                  className={`text-xs font-mono-code p-2.5 border flex items-center gap-2 ${
+                  className={`text-xs font-mono-code p-3 rounded-lg border flex items-center gap-2 ${
                     customProfileFeedback.type === 'success'
                       ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300'
                       : 'bg-rose-950/50 border-rose-500/50 text-rose-200'
@@ -552,10 +796,10 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
 
               <form
                 onSubmit={handleCreateGameProfile}
-                className="pt-4 border-t border-[#ff2a85]/20 space-y-3"
+                className="pt-4 border-t border-white/[0.08] space-y-3"
               >
                 <div className="text-xs font-mono-code text-[#00f0ff] uppercase">
-                  Créer un profil personnalisé ({user ? 'stocké dans votre compte Cloud' : 'stocké en local'})
+                  {user ? t.createProfileHeadingCloud : t.createProfileHeadingLocal}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
@@ -564,8 +808,8 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                     maxLength={60}
                     value={newProfName}
                     onChange={(e) => setNewProfName(e.target.value)}
-                    placeholder="Nom du profil (ex: Run 100% Open-World)"
-                    className="bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-xs text-white placeholder-slate-500"
+                    placeholder={t.profileNamePlaceholder}
+                    className="rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-[#00f0ff] focus:outline-none"
                   />
                   <input
                     type="text"
@@ -573,220 +817,317 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                     maxLength={60}
                     value={newProfUniverse}
                     onChange={(e) => setNewProfUniverse(e.target.value)}
-                    placeholder="Campagne / Jeu (ex: Campagne Principale)"
-                    className="bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-xs text-white placeholder-slate-500"
+                    placeholder={t.profileUniversePlaceholder}
+                    className="rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-[#00f0ff] focus:outline-none"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <input
                     type="text"
                     maxLength={40}
                     value={newProfTag}
                     onChange={(e) => setNewProfTag(e.target.value)}
-                    placeholder="Tag joueur"
-                    className="bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-xs text-white"
+                    placeholder={t.profileTagPlaceholder}
+                    className="rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-xs text-white focus:border-[#00f0ff] focus:outline-none"
                   />
                   <select
                     value={newProfTheme}
                     onChange={(e) => setNewProfTheme(e.target.value as UniverseTheme)}
-                    className="bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-xs text-white"
+                    className="rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-xs text-white focus:border-[#00f0ff] focus:outline-none"
                   >
-                    <option value="sunset-neon">Thème Sunset Néon</option>
-                    <option value="cyber-grid">Thème Secteur Cyber</option>
-                    <option value="open-world">Thème Monde Libre</option>
+                    <option value="sunset-neon">{t.themeOptSunset}</option>
+                    <option value="cyber-grid">{t.themeOptCyber}</option>
+                    <option value="open-world">{t.themeOptOpenWorld}</option>
                   </select>
                   <select
                     value={newProfIcon}
                     onChange={(e) =>
                       setNewProfIcon(e.target.value as 'Sun' | 'Zap' | 'Flame' | 'Gamepad2')
                     }
-                    className="bg-[#0e0320] border border-[#ff2a85]/35 px-3 py-2 text-xs text-white"
+                    className="rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-xs text-white focus:border-[#00f0ff] focus:outline-none"
                   >
-                    <option value="Sun">Icône Soleil</option>
-                    <option value="Flame">Icône Flamme</option>
-                    <option value="Zap">Icône Éclair</option>
-                    <option value="Gamepad2">Icône Manette</option>
+                    <option value="Gamepad2">{t.iconGamepad}</option>
+                    <option value="Sun">{t.iconSun}</option>
+                    <option value="Flame">{t.iconFlame}</option>
+                    <option value="Zap">{t.iconZap}</option>
+                  </select>
+                  <select
+                    value={newProfPreset}
+                    onChange={(e) => setNewProfPreset(e.target.value as 'empty' | 'starter')}
+                    className="rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-xs text-white focus:border-[#00f0ff] focus:outline-none"
+                  >
+                    <option value="empty">
+                      {locale === 'fr' ? 'Espace vierge' : 'Clean Empty Game'}
+                    </option>
+                    <option value="starter">
+                      {locale === 'fr' ? 'Modèle découverte' : 'Starter Example'}
+                    </option>
                   </select>
                 </div>
                 <button
                   type="submit"
                   disabled={creatingProfile}
-                  className="px-4 py-2 bg-[#ff2a85]/20 hover:bg-[#ff2a85]/35 border border-[#ff2a85]/60 text-white text-xs font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2.5 rounded-lg bg-white text-[#0a0910] hover:bg-[#00f0ff] text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>{creatingProfile ? 'Création...' : 'Ajouter le profil'}</span>
+                  <span>{creatingProfile ? t.creatingProfileBtn : t.addProfileBtn}</span>
                 </button>
               </form>
             </div>
           </div>
 
-          {/* Right 5 cols: Access / Gumroad & Manual Cloud Snapshots */}
+          {/* Right 5 cols: Verified License Status & Manual Cloud Snapshots */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="bg-[#180633] border border-[#ff2a85]/35 p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-[#ff2a85]/20 pb-3">
+            <div className="rounded-2xl bg-[#110e1c] border border-white/10 p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3.5">
                 <div className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-[#ff7b00]" />
-                  <h2 className="font-hud font-bold text-lg text-white">Accès &amp; Facturation</h2>
+                  <h2 className="font-hud font-bold text-lg text-white">{t.billingTitle}</h2>
                 </div>
-                <span className="text-xs font-mono-code text-emerald-400 uppercase">
-                  {account?.subscriptionTier || 'free'}
+                <span
+                  className={`text-xs font-mono-code uppercase font-semibold ${
+                    currentStatus === 'active' ? 'text-emerald-400' : 'text-amber-400'
+                  }`}
+                >
+                  {currentTier} · {currentStatus}
                 </span>
               </div>
 
-              <div className="p-4 bg-[#0e0320] border border-[#00f0ff]/30 space-y-1.5">
+              <div className="p-4 rounded-xl bg-black/35 border border-[#00f0ff]/25 space-y-1.5">
                 <div className="text-xs font-mono-code text-slate-400 uppercase">
-                  Statut Firestore du compte
+                  {t.firestoreStatusLabel}
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-hud font-bold text-xl text-white">{currentPlan.name}</span>
-                  <span className="font-mono-code font-bold text-[#00f0ff]">
-                    {currentPlan.priceDisplay}
+                  <span className="font-hud font-bold text-xl text-white">
+                    {currentPlanCopy.name}
+                  </span>
+                  <span className="font-mono-code font-bold text-[#00f0ff] tabular-nums">
+                    {currentPlanCopy.priceDisplay}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">
-                  Les droits payants ne peuvent pas être modifiés côté client (protégés par les
-                  règles Firestore).
-                </p>
+                <p className="text-xs text-slate-400 leading-relaxed">{t.firestoreStatusNote}</p>
               </div>
 
+              {/* Real Server-Side Readiness Diagnostic */}
               <div className="space-y-2 text-xs text-slate-300">
-                <div className="flex items-center justify-between py-1.5 border-b border-white/10">
-                  <span>Offre de lancement (7 €)</span>
-                  <span className="text-[#00f0ff] font-mono-code">Gumroad actif</span>
+                <div className="flex items-center justify-between py-1.5 border-b border-white/[0.08]">
+                  <span>{t.launchOfferRow}</span>
+                  <span className="text-[#00f0ff] font-mono-code">{t.gumroadActiveTag}</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-white/[0.08]">
+                  <span>
+                    {locale === 'fr' ? 'Webhook Gumroad serveur' : 'Server Gumroad Webhook'}
+                  </span>
+                  <span
+                    className={`font-mono-code ${
+                      paymentStatus?.gumroadWebhookConfigured ? 'text-emerald-400' : 'text-amber-400'
+                    }`}
+                  >
+                    {paymentStatus?.gumroadWebhookConfigured
+                      ? locale === 'fr'
+                        ? 'Configuré'
+                        : 'Configured'
+                      : locale === 'fr'
+                      ? 'Variables requises'
+                      : 'Env vars required'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-white/[0.08]">
+                  <span>{t.stripeRow}</span>
+                  <span
+                    className={`font-mono-code ${
+                      paymentStatus?.stripeCheckoutConfigured ? 'text-emerald-400' : 'text-amber-400'
+                    }`}
+                  >
+                    {paymentStatus?.stripeCheckoutConfigured ? t.stripeKeyDetected : t.stripeNotActive}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between py-1.5">
-                  <span>Abonnements Stripe</span>
-                  <span className="text-amber-400 font-mono-code">
-                    {isStripeConfigured() ? 'Clé détectée' : 'Non activé'}
+                  <span>
+                    {locale === 'fr'
+                      ? 'Sync auto Licence → Firestore'
+                      : 'Auto License → Firestore Sync'}
+                  </span>
+                  <span
+                    className={`font-mono-code ${
+                      paymentStatus?.firestoreServerSyncReady ? 'text-emerald-400' : 'text-amber-400'
+                    }`}
+                  >
+                    {paymentStatus?.firestoreServerSyncReady
+                      ? locale === 'fr'
+                        ? 'Actif'
+                        : 'Active'
+                      : locale === 'fr'
+                      ? 'En attente IAM'
+                      : 'Pending IAM'}
                   </span>
                 </div>
               </div>
+
+              {billingFeedback && (
+                <div className="p-3 rounded-lg bg-amber-950/40 border border-amber-500/40 text-xs font-mono-code text-amber-200">
+                  {billingFeedback}
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2.5 pt-2">
                 <a
-                  href={GUMROAD_PRODUCT_URL}
+                  href={gumroadHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => cyberAudio.playChirp()}
-                  className="flex-1 py-2.5 px-4 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 text-center"
+                  className="flex-1 py-2.5 px-4 rounded-lg bg-gradient-to-r from-[#ff2a85] via-[#ff5c4d] to-[#ff7b00] hover:brightness-110 text-white font-semibold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 text-center transition-all"
                 >
-                  <span>Offre Gumroad 7 €</span>
+                  <span>{t.gumroadBtn}</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
                 <button
+                  type="button"
                   onClick={() => onNavigate('pricing')}
-                  className="py-2.5 px-4 bg-[#0e0320] hover:bg-[#1b0838] border border-[#00f0ff]/45 text-[#00f0ff] font-hud font-bold text-xs uppercase tracking-wider cursor-pointer"
+                  className="py-2.5 px-4 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/15 text-[#00f0ff] font-semibold text-xs uppercase tracking-wider cursor-pointer transition-colors"
                 >
-                  Tarifs
+                  {t.pricingBtn}
                 </button>
-                {STRIPE_CONFIG.portalUrl && (
-                  <a
-                    href={STRIPE_CONFIG.portalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-2.5 px-4 bg-[#0e0320] border border-slate-700 text-slate-200 font-hud font-bold text-xs uppercase tracking-wider"
+                {(STRIPE_CONFIG.portalUrl || account?.stripeCustomerId) && (
+                  <button
+                    type="button"
+                    onClick={() => void handleOpenStripePortal()}
+                    disabled={portalLoading}
+                    className="py-2.5 px-4 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/15 text-slate-200 font-semibold text-xs uppercase tracking-wider cursor-pointer disabled:opacity-50"
                   >
-                    Portail
-                  </a>
+                    {portalLoading ? '...' : t.portalBtn}
+                  </button>
                 )}
               </div>
             </div>
 
             {/* Manual Cloud Progression Snapshots */}
-            <div className="bg-[#180633] border border-[#00f0ff]/30 p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-[#ff2a85]/20 pb-3">
+            <div className="rounded-2xl bg-[#110e1c] border border-[#00f0ff]/25 p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3.5">
                 <div className="flex items-center gap-2">
                   <CloudUpload className="w-5 h-5 text-[#00f0ff]" />
-                  <h2 className="font-hud font-bold text-lg text-white">Snapshots Cloud Manuels</h2>
+                  <h2 className="font-hud font-bold text-lg text-white">{t.snapshotsTitle}</h2>
                 </div>
-                <span className="text-xs font-mono-code text-slate-400">
-                  {cloudSnapshots.length} snapshot(s)
+                <span className="text-xs font-mono-code text-slate-400 tabular-nums">
+                  {cloudSnapshots.length} {t.snapshotsCountLabel}
                 </span>
               </div>
 
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Les snapshots Cloud sont enregistrés <strong className="text-slate-200">à la demande</strong>{' '}
-                (pas de synchronisation automatique en arrière-plan) et isolés sur votre UID Firebase.
-              </p>
+              <div className="space-y-2 text-xs text-slate-400 leading-relaxed">
+                <p>{t.snapshotsDesc}</p>
+                <p className="text-[11px] text-slate-500">{t.snapshotsImageNote}</p>
+              </div>
 
               {user ? (
                 <>
                   <button
+                    type="button"
                     onClick={() => void handleCloudBackup()}
                     disabled={syncingCloud}
-                    className="w-full py-2.5 px-4 bg-[#00f0ff]/15 hover:bg-[#00f0ff]/25 border border-[#00f0ff]/55 text-[#00f0ff] font-hud font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full py-2.5 px-4 rounded-lg bg-[#00f0ff]/12 hover:bg-[#00f0ff]/22 border border-[#00f0ff]/50 text-[#00f0ff] font-semibold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-colors"
                   >
                     <CloudUpload className="w-4 h-4" />
                     <span>
                       {syncingCloud
-                        ? 'Enregistrement...'
-                        : `Enregistrer un snapshot (${overallProgress}%)`}
+                        ? t.savingSnapshotBtn
+                        : t.saveSnapshotBtn.replace('{progress}', String(overallProgress))}
                     </span>
                   </button>
 
                   {cloudFeedback && (
                     <div
-                      className={`p-2.5 border text-xs font-mono-code flex items-center gap-2 ${
+                      className={`p-3 rounded-lg border text-xs font-mono-code space-y-2 ${
                         cloudFeedback.type === 'success'
                           ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300'
+                          : cloudFeedback.type === 'warning'
+                          ? 'bg-amber-950/50 border-amber-500/50 text-amber-200'
                           : 'bg-rose-950/50 border-rose-500/50 text-rose-200'
                       }`}
                     >
-                      {cloudFeedback.type === 'success' ? (
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <div className="flex items-start gap-2">
+                        {cloudFeedback.type === 'success' ? (
+                          <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                        )}
+                        <span className="leading-relaxed">{cloudFeedback.text}</span>
+                      </div>
+                      {cloudFeedback.showJsonExportAction && (
+                        <button
+                          type="button"
+                          onClick={() => exportBackup('active')}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>
+                            {locale === 'fr'
+                              ? 'Exporter JSON complet (avec images)'
+                              : 'Export Full JSON (with local images)'}
+                          </span>
+                        </button>
                       )}
-                      <span>{cloudFeedback.text}</span>
                     </div>
                   )}
 
                   {cloudSnapshots.length === 0 ? (
-                    <p className="text-xs text-slate-400">
-                      Aucun snapshot enregistré. Cliquez ci-dessus pour archiver l&apos;état actuel
-                      de vos missions, collectibles, véhicules, objectifs et notes.
-                    </p>
+                    <p className="text-xs text-slate-400 leading-relaxed">{t.snapshotsEmpty}</p>
                   ) : (
                     <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                       {cloudSnapshots.map((snap) => (
                         <div
                           key={snap.id}
-                          className="p-3 bg-[#0e0320] border border-[#ff2a85]/25 flex items-center justify-between gap-2"
+                          className="p-3.5 rounded-xl bg-black/35 border border-white/[0.08] flex items-center justify-between gap-2"
                         >
                           <div className="min-w-0">
                             <div className="text-xs font-hud font-bold text-white truncate">
                               {snap.profileName} · {snap.overallProgress}%
                             </div>
-                            <div className="text-[11px] font-mono-code text-slate-400">
-                              Missions {snap.missionsDone}/{snap.missionsTotal} · Collectibles{' '}
-                              {snap.collectiblesDone}/{snap.collectiblesTotal}
+                            <div className="text-[11px] font-mono-code text-slate-400 tabular-nums">
+                              {t.snapshotMissionsLabel} {snap.missionsDone}/{snap.missionsTotal} ·{' '}
+                              {t.snapshotCollectiblesLabel} {snap.collectiblesDone}/
+                              {snap.collectiblesTotal} · {t.snapshotMarkersLabel}{' '}
+                              {snap.mapMarkers?.length ?? 0}
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button
+                              type="button"
                               onClick={() => {
-                                restoreSnapshotData({
+                                const res = restoreSnapshotData({
+                                  profileId: snap.profileId,
                                   missions: snap.missions,
                                   collectibles: snap.collectibles,
                                   vehicles: snap.vehicles,
                                   objectives: snap.objectives,
                                   notes: snap.notes,
+                                  mapMarkers: snap.mapMarkers,
+                                  customMapUrl: snap.customMapUrl,
                                 });
                                 cyberAudio.playFanfare();
+                                const preservedNote =
+                                  res.preservedLocalImages > 0
+                                    ? locale === 'fr'
+                                      ? ` (${res.preservedLocalImages} image(s) locale(s) conservée(s))`
+                                      : ` (${res.preservedLocalImages} local vehicle image(s) preserved)`
+                                    : '';
                                 setCloudFeedback({
                                   type: 'success',
-                                  text: `Snapshot "${snap.profileName}" restauré dans votre HUD.`,
+                                  text: `${t.snapshotRestoredMsg.replace(
+                                    '{name}',
+                                    snap.profileName
+                                  )}${preservedNote}`,
                                 });
                               }}
-                              className="p-1.5 bg-[#00f0ff]/15 hover:bg-[#00f0ff]/30 border border-[#00f0ff]/45 text-[#00f0ff] cursor-pointer"
-                              title="Restaurer ce snapshot"
+                              className="p-1.5 rounded-lg bg-[#00f0ff]/12 hover:bg-[#00f0ff]/25 border border-[#00f0ff]/45 text-[#00f0ff] cursor-pointer transition-colors"
+                              title={t.restoreSnapshotTitle}
                             >
                               <CloudDownload className="w-3.5 h-3.5" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => void handleDeleteSnapshot(snap.id)}
-                              className="p-1.5 bg-slate-900 hover:text-rose-400 text-slate-400 border border-slate-800 cursor-pointer"
-                              title="Supprimer ce snapshot"
+                              className="p-1.5 rounded-lg bg-white/[0.04] hover:text-rose-400 text-slate-400 border border-white/10 cursor-pointer transition-colors"
+                              title={t.deleteSnapshotTitle}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -797,18 +1138,15 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate }) => {
                   )}
                 </>
               ) : (
-                <p className="text-xs text-slate-400">
-                  Connectez-vous avec Google pour créer et restaurer des snapshots Cloud dans
-                  Firestore (l&apos;export/import JSON local reste disponible dans Stats &amp; JSON).
-                </p>
+                <p className="text-xs text-slate-400 leading-relaxed">{t.snapshotsSignInHint}</p>
               )}
             </div>
           </div>
         </div>
       </main>
 
-      <footer className="border-t border-[#ff2a85]/25 bg-[#0e0320] py-6 px-4 text-center text-xs font-mono-code text-slate-400">
-        © 2026 10JITAL Production · JITALX · THE STREAMER COMMAND HUB
+      <footer className="border-t border-white/[0.08] bg-[#08070d] py-6 px-4 text-center text-xs font-mono-code text-slate-400">
+        {copy.footer.copyright}
       </footer>
     </div>
   );

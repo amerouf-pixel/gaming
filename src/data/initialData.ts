@@ -1,4 +1,12 @@
-import { Mission, Collectible, Vehicle, Objective, TacticalNote, GameProfile } from '../types';
+import {
+  Mission,
+  Collectible,
+  Vehicle,
+  Objective,
+  TacticalNote,
+  GameProfile,
+  ProfileWorkspaceData,
+} from '../types';
 
 export const INITIAL_PROFILES: GameProfile[] = [
   {
@@ -282,3 +290,248 @@ export const INITIAL_NOTES: TacticalNote[] = [
     updatedAt: 'Il y a 3 jours',
   },
 ];
+
+// Dedicated starter dataset for Profile 2 ("Secteur Cyber" — Sci-Fi Action RPG universe)
+const CYBER_SECTOR_WORKSPACE: ProfileWorkspaceData = {
+  missions: [
+    {
+      id: 'cy_m1',
+      title: 'Breach: Spire Relay 09',
+      type: 'main',
+      district: 'Core Spire',
+      giver: 'Kira-7',
+      description: 'Infiltrate the upper data spire and extract the encrypted subnet routing keys.',
+      rewardXp: 3200,
+      rewardCredits: 18500,
+      status: 'in_progress',
+      priority: true,
+      steps: [
+        { id: 'cy_m1_1', text: 'Bypass street-level drone scanners', completed: true },
+        { id: 'cy_m1_2', text: 'Disable thermal lock on elevator B', completed: false },
+        { id: 'cy_m1_3', text: 'Extract shard from central server rack', completed: false },
+      ],
+    },
+    {
+      id: 'cy_m2',
+      title: 'Blackout Bounty: Proxy Zero',
+      type: 'bounty',
+      district: 'Lower Conduit',
+      giver: 'Fixer Orion',
+      description: 'Track down the rogue net-runner disrupting sector telemetry relays.',
+      rewardXp: 1400,
+      rewardCredits: 7500,
+      status: 'available',
+      steps: [
+        { id: 'cy_m2_1', text: 'Trace signal origin in Lower Conduit', completed: false },
+        { id: 'cy_m2_2', text: 'Neutralize relay jammer', completed: false },
+      ],
+    },
+  ],
+  collectibles: [
+    {
+      id: 'cy_c1',
+      name: 'Encrypted Data Shard #01',
+      category: 'audio_log',
+      district: 'Core Spire',
+      hint: 'Inside the maintenance kiosk behind the transit terminal.',
+      coordinates: 'X: 410.2 | Y: 120.5',
+      collected: true,
+    },
+    {
+      id: 'cy_c2',
+      name: 'Prototype Optical Core',
+      category: 'blueprint',
+      district: 'Lower Conduit',
+      hint: 'Locked locker next to the neon cooling vents.',
+      coordinates: 'X: 288.4 | Y: 390.1',
+      collected: false,
+    },
+  ],
+  vehicles: [
+    {
+      id: 'cy_v1',
+      name: 'Kuro-X Interceptor',
+      category: 'moto',
+      manufacturer: 'Kuro Dynamics',
+      speed: 96,
+      handling: 90,
+      armor: 52,
+      unlocked: true,
+      location: 'Sector 4 Underground Bay',
+      isFavorite: true,
+      notes: 'High-torque cyberbike tuned for tight neon alley chases.',
+    },
+    {
+      id: 'cy_v2',
+      name: 'Aegis Recon APC',
+      category: 'heavy',
+      manufacturer: 'Vanguard Heavy',
+      speed: 65,
+      handling: 62,
+      armor: 96,
+      unlocked: false,
+      location: 'Perimeter Depot',
+      isFavorite: false,
+      notes: 'Armored transport built for high-threat extraction missions.',
+    },
+  ],
+  objectives: [
+    {
+      id: 'cy_o1',
+      title: 'Ghost in the Grid',
+      description: 'Complete 3 main Spire operations without triggering alarms.',
+      tier: 'gold',
+      progress: 1,
+      maxProgress: 3,
+      completed: false,
+      category: 'Stealth',
+    },
+  ],
+  notes: [
+    {
+      id: 'cy_n1',
+      title: 'Spire Relay Access Codes',
+      content: 'North Gate: 7741\nSub-level Maintenance: 9020',
+      tags: ['cyber', 'codes'],
+      pinned: true,
+      updatedAt: 'Preset',
+    },
+  ],
+  mapMarkers: [
+    {
+      id: 'cy_mk1',
+      title: 'Spire Relay 09',
+      category: 'mission',
+      x: 52,
+      y: 38,
+      district: 'Core Spire',
+      description: 'Primary extraction point',
+      createdAt: 'Preset',
+    },
+  ],
+  customMapUrl: '',
+  activityLog: [],
+  totalTrackedSeconds: 0,
+};
+
+// Dedicated starter dataset for Profile 3 ("Monde Libre" — Universal Sandbox / Open-World)
+const OPEN_WORLD_WORKSPACE: ProfileWorkspaceData = {
+  missions: [
+    {
+      id: 'ow_m1',
+      title: 'First Frontier Outpost',
+      type: 'main',
+      district: 'Northern Ridge',
+      giver: 'Expedition Log',
+      description: 'Scout the valley overlook, set up a fast-travel beacon, and chart nearby landmarks.',
+      rewardXp: 1500,
+      rewardCredits: 5000,
+      status: 'available',
+      priority: true,
+      steps: [
+        { id: 'ow_m1_1', text: 'Climb Northern Ridge watchtower', completed: false },
+        { id: 'ow_m1_2', text: 'Activate beacon and mark supply cache', completed: false },
+      ],
+    },
+  ],
+  collectibles: [
+    {
+      id: 'ow_c1',
+      name: 'Ancient Compass Fragment',
+      category: 'relic',
+      district: 'Northern Ridge',
+      hint: 'Near the ruined stone arch overlooking the canyon.',
+      coordinates: 'X: 118.0 | Y: 244.6',
+      collected: false,
+    },
+  ],
+  vehicles: [
+    {
+      id: 'ow_v1',
+      name: 'Nomad Trail Rover',
+      category: 'offroad',
+      manufacturer: 'Frontier Works',
+      speed: 76,
+      handling: 88,
+      armor: 84,
+      unlocked: true,
+      location: 'Base Camp Garage',
+      isFavorite: true,
+      notes: 'Reliable all-terrain scout vehicle for any open-world expedition.',
+    },
+  ],
+  objectives: [
+    {
+      id: 'ow_o1',
+      title: 'Cartographer',
+      description: 'Place 5 custom map markers across your campaign universe.',
+      tier: 'silver',
+      progress: 0,
+      maxProgress: 5,
+      completed: false,
+      category: 'Exploration',
+    },
+  ],
+  notes: [
+    {
+      id: 'ow_n1',
+      title: 'Campaign Setup Checklist',
+      content: 'Upload your game map image in the Map tab and add your own missions, collectibles, and builds.',
+      tags: ['setup', 'multi-game'],
+      pinned: true,
+      updatedAt: 'Preset',
+    },
+  ],
+  mapMarkers: [],
+  customMapUrl: '',
+  activityLog: [],
+  totalTrackedSeconds: 0,
+};
+
+function cloneWorkspace(ws: ProfileWorkspaceData): ProfileWorkspaceData {
+  return JSON.parse(JSON.stringify(ws)) as ProfileWorkspaceData;
+}
+
+export function createEmptyWorkspace(): ProfileWorkspaceData {
+  return {
+    missions: [],
+    collectibles: [],
+    vehicles: [],
+    objectives: [],
+    notes: [],
+    mapMarkers: [],
+    customMapUrl: '',
+    activityLog: [],
+    totalTrackedSeconds: 0,
+  };
+}
+
+export function getStarterWorkspaceForProfile(
+  profileId: string,
+  preset: 'starter' | 'empty' = 'starter'
+): ProfileWorkspaceData {
+  if (preset === 'empty') {
+    return createEmptyWorkspace();
+  }
+  if (profileId === 'sunset-neon') {
+    return cloneWorkspace({
+      missions: INITIAL_MISSIONS,
+      collectibles: INITIAL_COLLECTIBLES,
+      vehicles: INITIAL_VEHICLES,
+      objectives: INITIAL_OBJECTIVES,
+      notes: INITIAL_NOTES,
+      mapMarkers: [],
+      customMapUrl: '',
+      activityLog: [],
+      totalTrackedSeconds: 0,
+    });
+  }
+  if (profileId === 'neon-sector') {
+    return cloneWorkspace(CYBER_SECTOR_WORKSPACE);
+  }
+  if (profileId === 'custom') {
+    return cloneWorkspace(OPEN_WORLD_WORKSPACE);
+  }
+  // Custom user-created game profiles default to a clean empty workspace ready for any game
+  return createEmptyWorkspace();
+}

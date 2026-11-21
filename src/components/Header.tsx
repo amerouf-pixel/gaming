@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
+import { useLocale, LanguageSwitcher } from '../context/LocaleContext';
 import { cyberAudio } from '../utils/cyberAudio';
-import { GUMROAD_PRODUCT_URL } from '../services/stripeConfig';
+import { buildGumroadCheckoutUrl } from '../services/stripeConfig';
+import { DISCORD_INVITE_URL, DiscordIcon } from '../config/community';
 import {
   Gamepad2,
   Zap,
@@ -16,6 +18,7 @@ import {
   VolumeX,
   User,
   ExternalLink,
+  Settings2,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -27,13 +30,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
   const { activeProfile, activeTheme, profiles, setActiveProfile, sessionSeconds, overallProgress } =
     useGame();
   const { user, account } = useAuth();
+  const { locale, appCopy } = useLocale();
+  const t = appCopy.header;
+
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(() => cyberAudio.getMuted());
 
   const isSunsetNeon = activeTheme === 'sunset-neon';
-  const verifiedTier = user && account && account.subscriptionTier !== 'free'
-    ? account.subscriptionTier
-    : null;
+  const verifiedTier =
+    user && account && account.subscriptionTier !== 'free' ? account.subscriptionTier : null;
+  const gumroadHref = buildGumroadCheckoutUrl({ email: user?.email, uid: user?.uid });
 
   const handleToggleSound = () => {
     const muted = cyberAudio.toggleMute();
@@ -71,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
-        {/* Left: JITALX Brand & Universe Switcher */}
+        {/* Left: JITALX Brand & Multi-Game Profile Switcher */}
         <div className="flex items-center gap-3 relative min-w-0">
           <button
             type="button"
@@ -84,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
                 ? 'bg-gradient-to-br from-[#ff2a85]/25 via-[#ff7b00]/20 to-[#00f0ff]/15 border-[#ff2a85]/50 glow-pink'
                 : 'bg-gradient-to-br from-cyan-500/20 to-blue-600/10 border-cyan-500/40 glow-cyan'
             }`}
-            title="Retour à la présentation JITALX"
+            title={t.backToSite}
           >
             {isSunsetNeon ? (
               <Sun className="w-5 h-5 text-[#ff7b00]" />
@@ -109,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
                   isSunsetNeon ? 'text-[#00f0ff]/85' : 'text-cyan-400/85'
                 }`}
               >
-                THE STREAMER COMMAND HUB
+                MULTI-GAME COMMAND HUB
               </span>
               {verifiedTier && (
                 <span className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono-code bg-emerald-950/80 text-emerald-300 border border-emerald-600/60 rounded uppercase">
@@ -119,10 +125,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
               )}
             </div>
 
-            {/* Universe / Profile Switcher */}
+            {/* Universe / Game Profile Switcher */}
             <div className="relative">
               <button
+                type="button"
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                title={t.switchProfileTitle}
                 className={`flex items-center gap-1.5 text-xs transition-colors cursor-pointer group ${
                   isSunsetNeon
                     ? 'text-slate-300 hover:text-[#00f0ff]'
@@ -152,19 +160,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
                     onClick={() => setProfileDropdownOpen(false)}
                   />
                   <div
-                    className={`absolute left-0 mt-2 w-64 rounded-xl shadow-2xl p-2 z-50 divide-y ${
+                    className={`absolute left-0 mt-2 w-72 rounded-xl shadow-2xl p-2 z-50 divide-y ${
                       isSunsetNeon
                         ? 'bg-[#1b0838] border border-[#ff2a85]/50 divide-[#ff2a85]/20'
                         : 'bg-[#0d1424] border border-cyan-900/60 divide-slate-800/60'
                     }`}
                   >
                     <div className="px-2 py-1 text-[11px] font-mono-code uppercase tracking-wider text-slate-300">
-                      Profils &amp; Univers
+                      {t.profileMenuHeading}
                     </div>
-                    <div className="pt-1.5 space-y-1 max-h-64 overflow-y-auto">
+                    <div className="pt-1.5 pb-1.5 space-y-1 max-h-64 overflow-y-auto">
                       {profiles.map((p) => (
                         <button
                           key={p.id}
+                          type="button"
                           onClick={() => {
                             cyberAudio.playClick();
                             setActiveProfile(p);
@@ -195,6 +204,21 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
                         </button>
                       ))}
                     </div>
+                    {onOpenAccount && (
+                      <div className="pt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileDropdownOpen(false);
+                            onOpenAccount();
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 p-2 rounded-lg text-xs font-mono-code text-[#00f0ff] hover:bg-white/5 cursor-pointer"
+                        >
+                          <Settings2 className="w-3.5 h-3.5" />
+                          <span>{t.manageProfiles}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -202,10 +226,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
           </div>
         </div>
 
-        {/* Right: Clean Compact Utilities */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        {/* Right: Language Switcher + Clean Compact Utilities */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <LanguageSwitcher className="hidden xs:inline-flex" />
+
           {onOpenAccount && (
             <button
+              type="button"
               onClick={() => {
                 cyberAudio.playClick();
                 onOpenAccount();
@@ -215,34 +242,49 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
                   ? 'bg-[#1b0838] hover:bg-[#2a0c54] text-slate-100 border-[#ff2a85]/45 hover:border-[#00f0ff]'
                   : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700'
               }`}
-              title={user ? `Compte connecté : ${user.email}` : 'Connexion / Profils Cloud'}
+              title={user ? `${t.account}: ${user.email}` : t.signIn}
             >
               <User className={`w-3.5 h-3.5 ${isSunsetNeon ? 'text-[#00f0ff]' : 'text-cyan-400'}`} />
               <span className="hidden sm:inline max-w-[90px] truncate">
-                {user ? account?.gamerTag || 'Compte' : 'Compte'}
+                {user ? account?.gamerTag || t.account : t.account}
               </span>
             </button>
           )}
 
-          {/* Honest Direct Gumroad Offer Link */}
+          {/* Discreet Official Discord Link */}
           <a
-            href={GUMROAD_PRODUCT_URL}
+            href={DISCORD_INVITE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => cyberAudio.playClick()}
+            className="px-2.5 py-1.5 text-[11px] font-hud font-bold uppercase tracking-wider border border-[#5865F2]/55 bg-[#5865F2]/15 hover:bg-[#5865F2]/30 text-[#c9d1ff] hover:text-white transition-all flex items-center gap-1.5 whitespace-nowrap"
+            title={t.discordTitle}
+            aria-label={t.discordTitle}
+          >
+            <DiscordIcon className="w-3.5 h-3.5 text-[#7986ff] shrink-0" />
+            <span className="hidden lg:inline">{t.discordLabel}</span>
+          </a>
+
+          {/* Direct Gumroad Offer Link */}
+          <a
+            href={gumroadHref}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => cyberAudio.playChirp()}
-            className={`hidden sm:inline-flex px-2.5 py-1.5 text-[11px] font-hud font-bold uppercase tracking-wider border transition-all items-center gap-1 whitespace-nowrap ${
+            className={`hidden md:inline-flex px-2.5 py-1.5 text-[11px] font-hud font-bold uppercase tracking-wider border transition-all items-center gap-1 whitespace-nowrap ${
               isSunsetNeon
                 ? 'bg-gradient-to-r from-[#ff2a85]/20 to-[#ff7b00]/20 hover:from-[#ff2a85]/35 hover:to-[#ff7b00]/35 text-[#ff7b00] border-[#ff2a85]/50'
                 : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40'
             }`}
-            title="Offre de lancement JITALX Full Access (7 € sur Gumroad)"
+            title={locale === 'fr' ? 'Offre de lancement JITALX (7 € sur Gumroad)' : 'JITALX Full Access Launch Offer (€7 on Gumroad)'}
           >
-            <span>OFFRE 7 €</span>
+            <span>{locale === 'fr' ? 'OFFRE 7 €' : '€7 FULL'}</span>
             <ExternalLink className="w-3 h-3" />
           </a>
 
           {/* Audio Synthesizer Toggle */}
           <button
+            type="button"
             onClick={handleToggleSound}
             className={`p-2 border transition-colors cursor-pointer ${
               isAudioMuted
@@ -251,8 +293,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
                 ? 'border-[#00f0ff]/50 bg-[#00f0ff]/10 text-[#00f0ff] hover:bg-[#00f0ff]/20'
                 : 'border-cyan-500/50 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20'
             }`}
-            title={isAudioMuted ? 'Activer les effets sonores' : 'Couper les effets sonores'}
-            aria-label="Activer ou couper le son"
+            title={isAudioMuted ? t.audioOff : t.audioOn}
+            aria-label={isAudioMuted ? t.audioOff : t.audioOn}
           >
             {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
@@ -264,6 +306,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
                 ? 'bg-[#1b0838]/90 border border-[#ff2a85]/30'
                 : 'bg-slate-900/80 border border-slate-800'
             }`}
+            title={t.sessionLabel}
           >
             <Clock className={`w-3.5 h-3.5 ${isSunsetNeon ? 'text-[#ff7b00]' : 'text-cyan-400'}`} />
             <span>{formatTime(sessionSeconds)}</span>
@@ -280,7 +323,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenLanding, onOpenAccount }) 
             <Award className={`w-4 h-4 ${isSunsetNeon ? 'text-[#ff7b00]' : 'text-amber-400'}`} />
             <div className="text-right">
               <div className="text-[10px] uppercase font-mono-code text-slate-400 leading-none">
-                Global
+                {t.globalProgress}
               </div>
               <div
                 className={`font-hud font-bold text-sm leading-none mt-0.5 tabular-nums ${

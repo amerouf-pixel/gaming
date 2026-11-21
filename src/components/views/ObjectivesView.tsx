@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
+import { useLocale } from '../../context/LocaleContext';
 import { useToast } from '../../context/ToastContext';
 import { ObjectiveTier } from '../../types';
 import {
@@ -23,6 +24,8 @@ export const ObjectivesView: React.FC = () => {
     deleteObjective,
     stats,
   } = useGame();
+  const { locale, appCopy } = useLocale();
+  const t = appCopy.objectives;
   const { triggerAchievement } = useToast();
   const [selectedTier, setSelectedTier] = useState<string>('all');
   const [showNewForm, setShowNewForm] = useState(false);
@@ -73,13 +76,13 @@ export const ObjectivesView: React.FC = () => {
   const getTierLabel = (tier: ObjectiveTier) => {
     switch (tier) {
       case 'platinum':
-        return 'Platine';
+        return t.tierPlatinum;
       case 'gold':
-        return 'Or';
+        return t.tierGold;
       case 'silver':
-        return 'Argent';
+        return t.tierSilver;
       case 'bronze':
-        return 'Bronze';
+        return t.tierBronze;
     }
   };
 
@@ -93,12 +96,10 @@ export const ObjectivesView: React.FC = () => {
           <div className="flex items-center gap-2">
             <Trophy className="w-6 h-6 text-[#ff7b00]" />
             <h1 className="text-2xl font-bold font-hud text-white uppercase">
-              Objectifs &amp; Trophées
+              {appCopy.progression.tabObjectives}
             </h1>
           </div>
-          <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-            Suivi de vos défis personnels, paliers de progression et notifications HUD.
-          </p>
+          <p className="text-slate-400 text-xs sm:text-sm mt-0.5">{t.emptyDesc}</p>
         </div>
 
         <button
@@ -107,7 +108,7 @@ export const ObjectivesView: React.FC = () => {
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white font-hud font-bold text-xs uppercase tracking-wider cursor-pointer whitespace-nowrap"
         >
           {showNewForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          <span>{showNewForm ? 'Fermer' : 'Nouvel objectif'}</span>
+          <span>{showNewForm ? appCopy.common.close : appCopy.progression.newObjective}</span>
         </button>
       </div>
 
@@ -115,13 +116,13 @@ export const ObjectivesView: React.FC = () => {
       {showNewForm && (
         <form onSubmit={handleCreateObjective} className="jitalx-panel p-4 space-y-3">
           <div className="text-xs font-hud font-bold uppercase text-[#00f0ff]">
-            Créer un objectif / trophée
+            {appCopy.progression.newObjective}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input
               type="text"
               required
-              placeholder="Titre de l'objectif *"
+              placeholder={`${appCopy.modalNew.fieldTitle} *`}
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               className="jitalx-input px-3 py-2 text-xs"
@@ -132,14 +133,14 @@ export const ObjectivesView: React.FC = () => {
                 onChange={(e) => setNewTier(e.target.value as ObjectiveTier)}
                 className="jitalx-input px-2 py-2 text-xs"
               >
-                <option value="bronze">Bronze</option>
-                <option value="silver">Argent</option>
-                <option value="gold">Or</option>
-                <option value="platinum">Platine</option>
+                <option value="bronze">{t.tierBronze}</option>
+                <option value="silver">{t.tierSilver}</option>
+                <option value="gold">{t.tierGold}</option>
+                <option value="platinum">{t.tierPlatinum}</option>
               </select>
               <input
                 type="text"
-                placeholder="Catégorie"
+                placeholder={appCopy.modalNew.fieldCategory}
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
                 className="jitalx-input px-2 py-2 text-xs"
@@ -150,14 +151,14 @@ export const ObjectivesView: React.FC = () => {
                 max={999}
                 value={newMaxProgress}
                 onChange={(e) => setNewMaxProgress(e.target.value)}
-                title="Palier cible"
+                title={appCopy.modalNew.fieldMaxProgress}
                 className="jitalx-input px-2 py-2 text-xs"
               />
             </div>
           </div>
           <input
             type="text"
-            placeholder="Description / condition de déblocage"
+            placeholder={appCopy.modalNew.fieldDescription}
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
             className="w-full jitalx-input px-3 py-2 text-xs"
@@ -167,7 +168,7 @@ export const ObjectivesView: React.FC = () => {
               type="submit"
               className="px-4 py-2 bg-[#00f0ff] text-[#120428] font-hud font-bold text-xs uppercase cursor-pointer"
             >
-              Enregistrer l&apos;objectif
+              {appCopy.common.save}
             </button>
           </div>
         </form>
@@ -178,7 +179,7 @@ export const ObjectivesView: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="text-[11px] font-mono-code text-slate-400 uppercase">
-              Trophées débloqués
+              {t.unlockedBadge}
             </div>
             <div className="text-xl font-bold font-hud text-white tabular-nums">
               {stats.objectivesDone} / {stats.objectivesTotal} ({pct}%)
@@ -187,11 +188,11 @@ export const ObjectivesView: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              { id: 'all', label: 'Tous' },
-              { id: 'platinum', label: 'Platine' },
-              { id: 'gold', label: 'Or' },
-              { id: 'silver', label: 'Argent' },
-              { id: 'bronze', label: 'Bronze' },
+              { id: 'all', label: t.tierAll },
+              { id: 'platinum', label: t.tierPlatinum },
+              { id: 'gold', label: t.tierGold },
+              { id: 'silver', label: t.tierSilver },
+              { id: 'bronze', label: t.tierBronze },
             ].map((chip) => (
               <button
                 key={chip.id}
@@ -210,33 +211,39 @@ export const ObjectivesView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/10 text-[11px] font-mono-code text-slate-400">
-          <span>Aperçu des notifications de trophée HUD :</span>
+          <span>
+            {locale === 'fr' ? 'Aperçu des notifications HUD :' : 'HUD achievement toast preview:'}
+          </span>
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={() =>
                 triggerAchievement(
-                  'Aperçu Trophée Platine',
+                  locale === 'fr' ? 'Aperçu Trophée Platine' : 'Platinum Trophy Preview',
                   'platinum',
-                  'Notification HUD de démonstration pour un trophée Platine.'
+                  locale === 'fr'
+                    ? 'Notification HUD de démonstration pour un trophée Platine.'
+                    : 'Sample HUD notification for a Platinum achievement.'
                 )
               }
               className="px-2 py-1 bg-[#0b021a] border border-[#00f0ff]/40 text-[#00f0ff] hover:bg-[#00f0ff]/15 cursor-pointer"
             >
-              Tester Platine
+              {locale === 'fr' ? 'Tester Platine' : 'Test Platinum'}
             </button>
             <button
               type="button"
               onClick={() =>
                 triggerAchievement(
-                  'Aperçu Trophée Or',
+                  locale === 'fr' ? 'Aperçu Trophée Or' : 'Gold Trophy Preview',
                   'gold',
-                  'Notification HUD de démonstration pour un trophée Or.'
+                  locale === 'fr'
+                    ? 'Notification HUD de démonstration pour un trophée Or.'
+                    : 'Sample HUD notification for a Gold achievement.'
                 )
               }
               className="px-2 py-1 bg-[#0b021a] border border-amber-400/40 text-amber-300 hover:bg-amber-400/15 cursor-pointer"
             >
-              Tester Or
+              {locale === 'fr' ? 'Tester Or' : 'Test Gold'}
             </button>
           </div>
         </div>
@@ -246,7 +253,7 @@ export const ObjectivesView: React.FC = () => {
       <div className="space-y-3">
         {filteredObjectives.length === 0 ? (
           <div className="p-8 text-center jitalx-panel text-slate-300 text-sm">
-            Aucun objectif dans cette catégorie.
+            {t.emptyTitle}
           </div>
         ) : (
           filteredObjectives.map((obj) => {
@@ -266,7 +273,7 @@ export const ObjectivesView: React.FC = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 text-[11px] font-mono-code text-slate-400">
                       <span className="text-[#00f0ff] uppercase font-semibold">
-                        Trophée {getTierLabel(obj.tier)}
+                        {getTierLabel(obj.tier)}
                       </span>
                       <span>·</span>
                       <span>{obj.category}</span>

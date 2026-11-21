@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useGame } from '../../context/GameContext';
+import { useLocale } from '../../context/LocaleContext';
 import { ProgressTimelineChart } from '../charts/ProgressTimelineChart';
 import { ModalSaveDesktop } from '../ModalSaveDesktop';
+import { formatDurationShort } from '../../utils/analytics';
 import {
   BarChart3,
   Download,
@@ -12,6 +14,8 @@ import {
   AlertTriangle,
   HardDrive,
   Cloud,
+  Layers,
+  Globe2,
 } from 'lucide-react';
 
 interface StatsViewProps {
@@ -20,16 +24,21 @@ interface StatsViewProps {
 
 export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
   const {
+    activeProfile,
+    selectProfileById,
     overallProgress,
     stats,
     missions,
     mapMarkers,
-    activityLog,
     sessionSeconds,
+    totalTrackedSeconds,
+    globalMultiGameStats,
     exportBackup,
     importBackup,
     resetAllData,
   } = useGame();
+  const { locale, appCopy } = useLocale();
+  const t = appCopy.stats;
 
   const [importFeedback, setImportFeedback] = useState<{
     type: 'success' | 'error';
@@ -50,10 +59,10 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
     return { earnedXp, earnedCredits, stepsTotal, stepsDone };
   }, [missions]);
 
-  const formatHours = (seconds: number) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    return `${hrs}h ${mins}m ${seconds % 60}s`;
+  const handleExport = (scope: 'active' | 'all') => {
+    exportBackup(scope);
+    setImportFeedback({ type: 'success', text: t.exportSuccess });
+    setTimeout(() => setImportFeedback(null), 4000);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,42 +76,39 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
       if (result.ok) {
         setImportFeedback({
           type: 'success',
-          text: 'Sauvegarde JSON importée et appliquée avec succès.',
+          text: t.importSuccess,
         });
       } else {
         setImportFeedback({
           type: 'error',
-          text: result.error || 'Fichier de sauvegarde JSON invalide.',
+          text: `${t.importErrorPrefix} ${result.error || ''}`.trim(),
         });
       }
-      setTimeout(() => setImportFeedback(null), 5000);
+      setTimeout(() => setImportFeedback(null), 6000);
     };
     reader.onerror = () => {
       setImportFeedback({
         type: 'error',
-        text: 'Impossible de lire le fichier sélectionné.',
+        text: `${t.importErrorPrefix} ${locale === 'fr' ? 'Impossible de lire le fichier.' : 'Unable to read file.'}`,
       });
     };
     reader.readAsText(file);
     e.target.value = '';
   };
 
+  const numberLocale = locale === 'fr' ? 'fr-FR' : 'en-US';
+
   return (
     <div className="space-y-6 pb-20 md:pb-8">
       <div>
         <div className="flex items-center gap-2">
           <BarChart3 className="w-6 h-6 text-[#00f0ff]" />
-          <h1 className="text-2xl font-bold font-hud text-white uppercase">
-            Statistiques &amp; Sauvegardes
-          </h1>
+          <h1 className="text-2xl font-bold font-hud text-white uppercase">{t.title}</h1>
         </div>
-        <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-          Métriques calculées en direct depuis vos données locales, export/import JSON et accès
-          Cloud.
-        </p>
+        <p className="text-slate-400 text-xs sm:text-sm mt-0.5">{t.subtitle}</p>
       </div>
 
-      {/* Global Real Progress Card */}
+      {/* Active Game Real Progress Card */}
       <div className="jitalx-panel p-5 sm:p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
@@ -111,43 +117,59 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
                 <div className="text-3xl font-extrabold font-hud text-[#00f0ff] tabular-nums">
                   {overallProgress}%
                 </div>
-                <div className="text-[10px] font-mono-code uppercase text-slate-400">Global</div>
+                <div className="text-[10px] font-mono-code uppercase text-slate-400">
+                  {t.scopeActiveGame}
+                </div>
               </div>
             </div>
 
             <div>
               <div className="text-xs font-mono-code text-[#00f0ff] uppercase tracking-wider">
-                Calcul réel sur votre profil actif
+                {activeProfile.name} · {activeProfile.universe}
               </div>
               <h2 className="text-xl font-bold font-hud text-white mt-0.5 uppercase">
                 {overallProgress === 100
-                  ? 'Complétion 100 % atteinte'
+                  ? locale === 'fr'
+                    ? 'Complétion 100 % atteinte'
+                    : '100% Completion Reached'
                   : overallProgress >= 50
-                  ? 'Avancement supérieur à 50 %'
-                  : 'Progression en cours'}
+                  ? locale === 'fr'
+                    ? 'Avancement supérieur à 50 %'
+                    : 'Over 50% Completed'
+                  : locale === 'fr'
+                  ? 'Progression en cours'
+                  : 'Campaign In Progress'}
               </h2>
               <div className="flex flex-wrap items-center gap-4 text-xs font-mono-code text-slate-400 mt-2 tabular-nums">
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-[#ff7b00]" />
-                  Session : {formatHours(sessionSeconds)}
+                  {t.timeTracked}: {formatDurationShort(totalTrackedSeconds, locale)} (
+                  {locale === 'fr' ? 'session' : 'session'}:{' '}
+                  {formatDurationShort(sessionSeconds, locale)})
                 </span>
-                <span>Étapes missions : {realTotals.stepsDone}/{realTotals.stepsTotal}</span>
-                <span>Repères carte : {mapMarkers.length}</span>
+                <span>
+                  {appCopy.home.stepLabel}: {realTotals.stepsDone}/{realTotals.stepsTotal}
+                </span>
+                <span>
+                  {locale === 'fr' ? 'Repères carte' : 'Map pins'}: {mapMarkers.length}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 shrink-0">
             <div className="p-3 jitalx-panel-deep">
-              <div className="text-[10px] font-mono-code text-slate-400 uppercase">XP cumulée</div>
+              <div className="text-[10px] font-mono-code text-slate-400 uppercase">{t.colXp}</div>
               <div className="text-lg font-bold font-mono-code text-[#00f0ff] tabular-nums">
-                {realTotals.earnedXp.toLocaleString('fr-FR')} XP
+                {realTotals.earnedXp.toLocaleString(numberLocale)} XP
               </div>
             </div>
             <div className="p-3 jitalx-panel-deep">
-              <div className="text-[10px] font-mono-code text-slate-400 uppercase">Crédits gagnés</div>
+              <div className="text-[10px] font-mono-code text-slate-400 uppercase">
+                {locale === 'fr' ? 'Crédits' : 'Credits'}
+              </div>
               <div className="text-lg font-bold font-mono-code text-[#ff7b00] tabular-nums">
-                {realTotals.earnedCredits.toLocaleString('fr-FR')} Cr
+                {realTotals.earnedCredits.toLocaleString(numberLocale)} Cr
               </div>
             </div>
           </div>
@@ -156,28 +178,28 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 border-t border-white/10">
           {[
             {
-              label: 'Missions terminées',
+              label: appCopy.home.statMissions,
               done: stats.missionsDone,
               total: stats.missionsTotal,
               barClass: 'bg-[#00f0ff]',
               textClass: 'text-[#00f0ff]',
             },
             {
-              label: 'Collectibles découverts',
+              label: appCopy.home.statCollectibles,
               done: stats.collectiblesDone,
               total: stats.collectiblesTotal,
               barClass: 'bg-amber-400',
               textClass: 'text-amber-300',
             },
             {
-              label: 'Véhicules possédés',
+              label: appCopy.home.statGarage,
               done: stats.vehiclesUnlocked,
               total: stats.vehiclesTotal,
               barClass: 'bg-emerald-400',
               textClass: 'text-emerald-300',
             },
             {
-              label: 'Objectifs & Trophées',
+              label: appCopy.home.statObjectives,
               done: stats.objectivesDone,
               total: stats.objectivesTotal,
               barClass: 'bg-[#ff2a85]',
@@ -202,22 +224,94 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
         </div>
       </div>
 
-      {/* Optional Simulated Projection Chart — Explicitly Labeled as Simulated */}
-      <ProgressTimelineChart
-        title="PROJECTION INDICATIVE (SIMULÉE)"
-        subtitle={`Courbe indicative générée localement à partir de vos compteurs actuels (${activityLog.length} actions enregistrées) — il ne s'agit pas de télémétrie jeu en temps réel`}
-        showFilters={true}
-      />
+      {/* 100% REAL Persisted Analytics Chart */}
+      <ProgressTimelineChart showFilters={true} />
+
+      {/* Multi-Game Overview Matrix */}
+      <div className="jitalx-panel p-5 sm:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <Globe2 className="w-5 h-5 text-[#ff2a85]" />
+              <h3 className="font-hud font-bold text-lg text-white uppercase">
+                {t.multiGameMatrixTitle}
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">{t.multiGameMatrixSubtitle}</p>
+          </div>
+          <div className="text-xs font-mono-code text-[#00f0ff] tabular-nums">
+            {t.scopeAllGames}: {globalMultiGameStats.overallProgress}% ·{' '}
+            {formatDurationShort(globalMultiGameStats.totalTrackedSeconds, locale)}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs font-mono-code">
+            <thead>
+              <tr className="border-b border-white/10 text-slate-400 uppercase text-[10px]">
+                <th className="py-2.5 pr-3">{t.colGame}</th>
+                <th className="py-2.5 px-2">{t.colProgress}</th>
+                <th className="py-2.5 px-2">{t.colMissions}</th>
+                <th className="py-2.5 px-2">{t.colCollectibles}</th>
+                <th className="py-2.5 px-2">{t.colGarage}</th>
+                <th className="py-2.5 px-2">{t.colXp}</th>
+                <th className="py-2.5 pl-2 text-right">{t.colTime}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {globalMultiGameStats.perProfile.map((row) => {
+                const isCurrent = row.profileId === activeProfile.id;
+                return (
+                  <tr
+                    key={row.profileId}
+                    onClick={() => selectProfileById(row.profileId)}
+                    className={`cursor-pointer transition-colors ${
+                      isCurrent ? 'bg-[#00f0ff]/10 text-white' : 'hover:bg-white/5 text-slate-300'
+                    }`}
+                  >
+                    <td className="py-2.5 pr-3">
+                      <div className="font-hud font-bold text-white flex items-center gap-2">
+                        <span>{row.profileName}</span>
+                        {isCurrent && (
+                          <span className="text-[9px] font-mono-code px-1.5 py-0.5 bg-[#00f0ff]/20 text-[#00f0ff] uppercase">
+                            {appCopy.common.active}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400">{row.universe}</div>
+                    </td>
+                    <td className="py-2.5 px-2 tabular-nums font-bold text-[#00f0ff]">
+                      {row.overallProgress}%
+                    </td>
+                    <td className="py-2.5 px-2 tabular-nums">
+                      {row.missionsDone}/{row.missionsTotal}
+                    </td>
+                    <td className="py-2.5 px-2 tabular-nums">
+                      {row.collectiblesDone}/{row.collectiblesTotal}
+                    </td>
+                    <td className="py-2.5 px-2 tabular-nums">
+                      {row.vehiclesUnlocked}/{row.vehiclesTotal}
+                    </td>
+                    <td className="py-2.5 px-2 tabular-nums text-[#ff7b00]">
+                      {row.earnedXp.toLocaleString(numberLocale)}
+                    </td>
+                    <td className="py-2.5 pl-2 text-right tabular-nums">
+                      {formatDurationShort(row.totalTrackedSeconds, locale)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Backup & Data Management */}
       <div className="jitalx-panel p-5 sm:p-6">
         <h3 className="font-hud font-bold text-lg text-white uppercase mb-1.5">
-          Sauvegardes JSON, Guide Bureau &amp; Cloud
+          {locale === 'fr' ? 'Sauvegardes JSON & Snapshots Cloud' : 'JSON Backups & Cloud Snapshots'}
         </h3>
-        <p className="text-xs text-slate-400 mb-5">
-          Exportez vos données locales en JSON (incluant vos repères carte), restaurez un fichier
-          vérifié, ou créez un instantané Cloud manuel via votre compte Firebase.
-        </p>
+        <p className="text-xs text-slate-400 mb-5">{appCopy.common.multiGameNote}</p>
 
         {importFeedback && (
           <div
@@ -239,16 +333,25 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={exportBackup}
+            onClick={() => handleExport('active')}
             className="flex items-center gap-2 px-4 py-2.5 bg-[#0b021a] hover:bg-[#1e0940] border border-[#00f0ff]/45 text-xs font-mono-code text-[#00f0ff] cursor-pointer transition-colors"
           >
             <Download className="w-4 h-4" />
-            <span>Exporter en JSON</span>
+            <span>{t.exportActiveBtn}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleExport('all')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#0b021a] hover:bg-[#1e0940] border border-[#ff7b00]/45 text-xs font-mono-code text-[#ff7b00] cursor-pointer transition-colors"
+          >
+            <Layers className="w-4 h-4" />
+            <span>{t.exportAllGamesBtn}</span>
           </button>
 
           <label className="flex items-center gap-2 px-4 py-2.5 bg-[#0b021a] hover:bg-[#1e0940] border border-emerald-500/45 text-xs font-mono-code text-emerald-300 cursor-pointer transition-colors">
             <Upload className="w-4 h-4" />
-            <span>Importer un JSON</span>
+            <span>{t.importJsonBtn}</span>
             <input
               type="file"
               accept=".json,application/json"
@@ -264,7 +367,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
               className="flex items-center gap-2 px-4 py-2.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#ff2a85]/50 text-xs font-mono-code text-white cursor-pointer transition-colors"
             >
               <Cloud className="w-4 h-4 text-[#00f0ff]" />
-              <span>Snapshots Cloud</span>
+              <span>{t.cloudAccountBtn}</span>
             </button>
           )}
 
@@ -274,7 +377,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
             className="flex items-center gap-2 px-4 py-2.5 bg-[#0b021a] hover:bg-[#1e0940] border border-white/15 text-xs font-mono-code text-slate-200 cursor-pointer transition-colors"
           >
             <HardDrive className="w-4 h-4 text-[#ff7b00]" />
-            <span>Guide Bureau</span>
+            <span>{t.backupGuideBtn}</span>
           </button>
 
           <button
@@ -283,7 +386,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
             className="flex items-center gap-2 px-4 py-2.5 bg-rose-950/30 hover:bg-rose-900/40 border border-rose-800/60 text-xs font-mono-code text-rose-300 cursor-pointer transition-colors sm:ml-auto"
           >
             <RefreshCw className="w-4 h-4 text-rose-400" />
-            <span>Réinitialiser</span>
+            <span>{t.resetUniverseBtn}</span>
           </button>
         </div>
 
@@ -291,9 +394,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
           <div className="mt-4 p-4 bg-rose-950/40 border border-rose-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
-              <div className="text-xs text-rose-200">
-                Confirmer la réinitialisation des données locales aux valeurs de démonstration ?
-              </div>
+              <div className="text-xs text-rose-200">{t.resetConfirmPrompt}</div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
@@ -301,17 +402,19 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
                 onClick={() => {
                   resetAllData();
                   setShowResetConfirm(false);
+                  setImportFeedback({ type: 'success', text: t.resetDone });
+                  setTimeout(() => setImportFeedback(null), 4000);
                 }}
                 className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white cursor-pointer"
               >
-                Confirmer
+                {t.confirmResetBtn}
               </button>
               <button
                 type="button"
                 onClick={() => setShowResetConfirm(false)}
                 className="px-3 py-1.5 bg-slate-800 text-xs text-slate-300 cursor-pointer"
               >
-                Annuler
+                {appCopy.common.cancel}
               </button>
             </div>
           </div>
@@ -321,6 +424,8 @@ export const StatsView: React.FC<StatsViewProps> = ({ onOpenAccount }) => {
       <ModalSaveDesktop
         isOpen={isDesktopGuideOpen}
         onClose={() => setIsDesktopGuideOpen(false)}
+        onExportJson={() => handleExport('all')}
+        onOpenAccount={onOpenAccount}
       />
     </div>
   );

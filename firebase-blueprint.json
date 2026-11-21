@@ -2,7 +2,7 @@
   "entities": {
     "UserAccount": {
       "title": "UserAccount",
-      "description": "Authenticated NeonOS user account, streamer settings, and subscription entitlements.",
+      "description": "Authenticated JITALX user account, streamer settings, and subscription entitlements.",
       "type": "object",
       "properties": {
         "uid": {
@@ -135,7 +135,7 @@
     },
     "CloudSnapshot": {
       "title": "CloudSnapshot",
-      "description": "Cloud-synced NeonOS progression snapshot stored natively as structured lists and counters.",
+      "description": "Cloud-synced JITALX progression snapshot stored natively as structured lists and counters.",
       "type": "object",
       "properties": {
         "ownerId": {
@@ -184,6 +184,9 @@
         "notes": {
           "type": "array"
         },
+        "mapMarkers": {
+          "type": "array"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
@@ -207,13 +210,14 @@
         "vehicles",
         "objectives",
         "notes",
+        "mapMarkers",
         "createdAt",
         "updatedAt"
       ]
     },
     "CreatorInquiry": {
       "title": "CreatorInquiry",
-      "description": "Streamer partnership or commercial contact request submitted from the GTA 6 Streamers page.",
+      "description": "Streamer partnership or commercial contact request submitted from the JITALX Streamers page.",
       "type": "object",
       "properties": {
         "ownerId": {

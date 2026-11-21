@@ -31,11 +31,18 @@ import {
   Vehicle,
   Objective,
   TacticalNote,
+  MapMarker,
 } from '../types';
 
 export interface CloudActionResult {
   ok: boolean;
   error?: string;
+}
+
+export interface SaveCloudSnapshotResult extends CloudActionResult {
+  omittedVehicleImages?: number;
+  omittedCustomMap?: boolean;
+  payloadBytes?: number;
 }
 
 interface AuthContextType {
@@ -48,6 +55,7 @@ interface AuthContextType {
   clearCloudError: () => void;
   customProfiles: GameProfile[];
   cloudSnapshots: CloudSnapshotRecord[];
+  getIdToken: () => Promise<string | null>;
   signInWithGoogle: () => Promise<boolean>;
   signOut: () => Promise<void>;
   updateAccountProfile: (updates: {
@@ -64,6 +72,16 @@ interface AuthContextType {
     avatarIcon: 'Sun' | 'Zap' | 'Flame' | 'Gamepad2';
     theme: UniverseTheme;
   }) => Promise<{ ok: boolean; profile?: GameProfile; error?: string }>;
+  updateCustomProfile: (
+    profileId: string,
+    updates: {
+      name: string;
+      universe: string;
+      playerTag: string;
+      avatarIcon: 'Sun' | 'Zap' | 'Flame' | 'Gamepad2';
+      theme: UniverseTheme;
+    }
+  ) => Promise<CloudActionResult>;
   deleteCustomProfile: (profileId: string) => Promise<CloudActionResult>;
   saveCloudSnapshot: (payload: {
     profileId: string;
@@ -78,7 +96,9 @@ interface AuthContextType {
     vehicles: Vehicle[];
     objectives: Objective[];
     notes: TacticalNote[];
-  }) => Promise<CloudActionResult>;
+    mapMarkers: MapMarker[];
+    customMapUrl?: string;
+  }) => Promise<SaveCloudSnapshotResult>;
   deleteCloudSnapshot: (snapshotId: string) => Promise<CloudActionResult>;
   submitCreatorInquiry: (
     input: CreatorInquiryInput
@@ -87,15 +107,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const MAX_FIRESTORE_SNAPSHOT_BYTES = 900_000; // Safe ceiling below Firestore 1 MiB doc limit
+
 const sanitizeStr = (value: string, maxLen: number, fallback = ''): string => {
   const trimmed = (value || '').trim();
   if (!trimmed) return fallback;
   return trimmed.slice(0, maxLen);
 };
 
-/**
- * Recursively strips keys with `undefined` values because Firestore rejects `undefined` inside maps/arrays.
- */
 function stripUndefinedDeep<T>(value: T): T {
   if (Array.isArray(value)) {
     return value.map((item) => stripUndefinedDeep(item)) as unknown as T;
@@ -138,15 +157,15 @@ function logAndFormatFirestoreError(
   console.error('Firestore Error: ', JSON.stringify(errInfo));
 
   if (rawMessage.includes('Quota exceeded')) {
-    return 'Quota quotidien Firestore atteint. Vos données locales restent intactes ; réessayez ultérieurement.';
+    return 'Firestore daily quota reached. Your local data remains intact; please try again later.';
   }
   if (rawMessage.includes('Missing or insufficient permissions') || rawMessage.includes('permission-denied')) {
-    return 'Accès Firestore refusé par les règles de sécurité (vérifiez que votre compte Google possède une adresse e-mail vérifiée).';
+    return 'Firestore access denied by security rules (ensure your Google account has a verified email).';
   }
   if (rawMessage.includes('offline') || rawMessage.includes('unavailable')) {
-    return 'Connexion réseau ou serveur Firestore indisponible. Vos données locales sont conservées.';
+    return 'Network or Firestore unavailable. Your local workspace remains safe.';
   }
-  return 'La synchronisation Cloud a échoué. Vos données locales restent préservées.';
+  return 'Cloud sync failed. Your local workspace data remains preserved.';
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -159,7 +178,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [customProfiles, setCustomProfiles] = useState<GameProfile[]>([]);
   const [cloudSnapshots, setCloudSnapshots] = useState<CloudSnapshotRecord[]>([]);
 
-  // Ensure /users/{uid} exists on login and before subcollection writes
+  const getIdToken = useCallback(async (): Promise<string | null> => {
+    if (!auth.currentUser) return null;
+    try {
+      return await auth.currentUser.getIdToken();
+    } catch {
+      return null;
+    }
+  }, []);
+
   const ensureUserAccountDoc = useCallback(async (firebaseUser: User): Promise<boolean> => {
     const userPath = `users/${firebaseUser.uid}`;
     const userRef = doc(db, 'users', firebaseUser.uid);
@@ -200,7 +227,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Auth listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
@@ -220,7 +246,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [ensureUserAccountDoc]);
 
-  // Real-time listeners for authenticated user's own account, custom profiles, and cloud snapshots
   useEffect(() => {
     if (!isAuthReady || !user) return;
 
@@ -304,6 +329,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               vehicles: Array.isArray(data.vehicles) ? data.vehicles : [],
               objectives: Array.isArray(data.objectives) ? data.objectives : [],
               notes: Array.isArray(data.notes) ? data.notes : [],
+              mapMarkers: Array.isArray(data.mapMarkers) ? data.mapMarkers : [],
+              customMapUrl: typeof data.customMapUrl === 'string' ? data.customMapUrl : undefined,
               updatedAtMs: ts && typeof ts.toMillis === 'function' ? ts.toMillis() : Date.now(),
             };
           })
@@ -330,7 +357,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signInWithPopup(auth, googleProvider);
       return true;
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Connexion Google annulée ou bloquée.';
+      const msg = error instanceof Error ? error.message : 'Google sign-in canceled or blocked.';
       setAuthError(msg);
       return false;
     } finally {
@@ -351,11 +378,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     streamPlatform: StreamPlatform;
     preferredTheme: UniverseTheme;
   }): Promise<CloudActionResult> => {
-    if (!user) return { ok: false, error: 'Vous devez être connecté pour modifier votre profil Cloud.' };
+    if (!user) return { ok: false, error: 'You must sign in to update your Cloud profile.' };
     const path = `users/${user.uid}`;
     const docReady = await ensureUserAccountDoc(user);
     if (!docReady) {
-      return { ok: false, error: 'Impossible d’initialiser le profil utilisateur dans Firestore.' };
+      return { ok: false, error: 'Unable to initialize your Firestore account document.' };
     }
     try {
       await updateDoc(doc(db, 'users', user.uid), {
@@ -382,15 +409,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     avatarIcon: 'Sun' | 'Zap' | 'Flame' | 'Gamepad2';
     theme: UniverseTheme;
   }): Promise<{ ok: boolean; profile?: GameProfile; error?: string }> => {
-    if (!user) return { ok: false, error: 'Utilisateur non connecté.' };
+    if (!user) return { ok: false, error: 'Not signed in.' };
     const docReady = await ensureUserAccountDoc(user);
     if (!docReady) {
-      return { ok: false, error: 'Compte Firestore indisponible. Vérifiez votre connexion.' };
+      return { ok: false, error: 'Firestore account unavailable. Check your connection.' };
     }
     const profileId = `prof_${Date.now()}`;
     const path = `users/${user.uid}/customProfiles/${profileId}`;
-    const cleanName = sanitizeStr(profile.name, 60, 'Nouvel Univers');
-    const cleanUniverse = sanitizeStr(profile.universe, 60, 'Monde Ouvert');
+    const cleanName = sanitizeStr(profile.name, 60, 'New Game Profile');
+    const cleanUniverse = sanitizeStr(profile.universe, 60, 'Custom Universe');
     const cleanTag = sanitizeStr(profile.playerTag, 40, 'Runner_01');
 
     try {
@@ -424,8 +451,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateCustomProfile = async (
+    profileId: string,
+    updates: {
+      name: string;
+      universe: string;
+      playerTag: string;
+      avatarIcon: 'Sun' | 'Zap' | 'Flame' | 'Gamepad2';
+      theme: UniverseTheme;
+    }
+  ): Promise<CloudActionResult> => {
+    if (!user) return { ok: false, error: 'Not signed in.' };
+    const path = `users/${user.uid}/customProfiles/${profileId}`;
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'customProfiles', profileId), {
+        name: sanitizeStr(updates.name, 60, 'Game Profile'),
+        universe: sanitizeStr(updates.universe, 60, 'Custom Universe'),
+        playerTag: sanitizeStr(updates.playerTag, 40, 'Runner_01'),
+        avatarIcon: updates.avatarIcon,
+        theme: updates.theme,
+        updatedAt: serverTimestamp(),
+      });
+      setCloudError(null);
+      return { ok: true };
+    } catch (error) {
+      const msg = logAndFormatFirestoreError(error, OperationType.UPDATE, path);
+      setCloudError(msg);
+      return { ok: false, error: msg };
+    }
+  };
+
   const deleteCustomProfile = async (profileId: string): Promise<CloudActionResult> => {
-    if (!user) return { ok: false, error: 'Utilisateur non connecté.' };
+    if (!user) return { ok: false, error: 'Not signed in.' };
     const path = `users/${user.uid}/customProfiles/${profileId}`;
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'customProfiles', profileId));
@@ -451,53 +508,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     vehicles: Vehicle[];
     objectives: Objective[];
     notes: TacticalNote[];
-  }): Promise<CloudActionResult> => {
+    mapMarkers: MapMarker[];
+    customMapUrl?: string;
+  }): Promise<SaveCloudSnapshotResult> => {
     if (!user) {
-      return { ok: false, error: 'Connectez-vous avec Google pour enregistrer une sauvegarde Cloud.' };
+      return { ok: false, error: 'Sign in with Google to save a Cloud snapshot.' };
     }
     const docReady = await ensureUserAccountDoc(user);
     if (!docReady) {
-      return { ok: false, error: 'Impossible de préparer votre espace Cloud Firestore.' };
+      return { ok: false, error: 'Unable to prepare your Cloud Firestore space.' };
     }
 
     const snapshotId = `snap_${Date.now()}`;
     const path = `users/${user.uid}/cloudSnapshots/${snapshotId}`;
 
-    // Strip undefined fields and large local base64 images so Firestore stays well under 1MB
+    let omittedVehicleImages = 0;
     const cleanMissions = stripUndefinedDeep(payload.missions.slice(0, 100));
     const cleanCollectibles = stripUndefinedDeep(payload.collectibles.slice(0, 150));
     const cleanVehicles = stripUndefinedDeep(
-      payload.vehicles.slice(0, 100).map((v) => ({
-        ...v,
-        imageUrl:
+      payload.vehicles.slice(0, 100).map((v) => {
+        const isLargeBase64 = Boolean(
           v.imageUrl && v.imageUrl.startsWith('data:image/') && v.imageUrl.length > 2000
-            ? undefined
-            : v.imageUrl,
-      }))
+        );
+        if (isLargeBase64) {
+          omittedVehicleImages += 1;
+        }
+        return {
+          ...v,
+          imageUrl: isLargeBase64 ? undefined : v.imageUrl,
+        };
+      })
     );
     const cleanObjectives = stripUndefinedDeep(payload.objectives.slice(0, 100));
     const cleanNotes = stripUndefinedDeep(payload.notes.slice(0, 100));
+    const cleanMapMarkers = stripUndefinedDeep((payload.mapMarkers || []).slice(0, 150));
+
+    const omittedCustomMap = Boolean(
+      payload.customMapUrl && payload.customMapUrl.startsWith('data:image/')
+    );
+
+    const docPayload = {
+      ownerId: user.uid,
+      profileId: sanitizeStr(payload.profileId, 64, 'sunset-neon'),
+      profileName: sanitizeStr(payload.profileName, 60, 'Sunset Néon'),
+      overallProgress: Math.max(0, Math.min(100, Math.round(payload.overallProgress))),
+      missionsDone: Math.max(0, Math.min(500, Math.round(payload.missionsDone))),
+      missionsTotal: Math.max(0, Math.min(500, Math.round(payload.missionsTotal))),
+      collectiblesDone: Math.max(0, Math.min(500, Math.round(payload.collectiblesDone))),
+      collectiblesTotal: Math.max(0, Math.min(500, Math.round(payload.collectiblesTotal))),
+      missions: cleanMissions,
+      collectibles: cleanCollectibles,
+      vehicles: cleanVehicles,
+      objectives: cleanObjectives,
+      notes: cleanNotes,
+      mapMarkers: cleanMapMarkers,
+    };
+
+    const payloadBytes = new Blob([JSON.stringify(docPayload)]).size;
+    if (payloadBytes > MAX_FIRESTORE_SNAPSHOT_BYTES) {
+      return {
+        ok: false,
+        payloadBytes,
+        error: `Snapshot size (${Math.round(payloadBytes / 1024)} KB) exceeds the safe Firestore document limit (900 KB). Use JSON Export in Stats instead.`,
+      };
+    }
 
     try {
       await setDoc(doc(db, 'users', user.uid, 'cloudSnapshots', snapshotId), {
-        ownerId: user.uid,
-        profileId: sanitizeStr(payload.profileId, 64, 'sunset-neon'),
-        profileName: sanitizeStr(payload.profileName, 60, 'Sunset Néon'),
-        overallProgress: Math.max(0, Math.min(100, Math.round(payload.overallProgress))),
-        missionsDone: Math.max(0, Math.min(500, Math.round(payload.missionsDone))),
-        missionsTotal: Math.max(0, Math.min(500, Math.round(payload.missionsTotal))),
-        collectiblesDone: Math.max(0, Math.min(500, Math.round(payload.collectiblesDone))),
-        collectiblesTotal: Math.max(0, Math.min(500, Math.round(payload.collectiblesTotal))),
-        missions: cleanMissions,
-        collectibles: cleanCollectibles,
-        vehicles: cleanVehicles,
-        objectives: cleanObjectives,
-        notes: cleanNotes,
+        ...docPayload,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
       setCloudError(null);
-      return { ok: true };
+      return {
+        ok: true,
+        omittedVehicleImages,
+        omittedCustomMap,
+        payloadBytes,
+      };
     } catch (error) {
       const msg = logAndFormatFirestoreError(error, OperationType.CREATE, path);
       setCloudError(msg);
@@ -506,7 +594,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteCloudSnapshot = async (snapshotId: string): Promise<CloudActionResult> => {
-    if (!user) return { ok: false, error: 'Utilisateur non connecté.' };
+    if (!user) return { ok: false, error: 'Not signed in.' };
     const path = `users/${user.uid}/cloudSnapshots/${snapshotId}`;
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'cloudSnapshots', snapshotId));
@@ -563,10 +651,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearCloudError: () => setCloudError(null),
         customProfiles,
         cloudSnapshots,
+        getIdToken,
         signInWithGoogle,
         signOut,
         updateAccountProfile,
         createCustomProfile,
+        updateCustomProfile,
         deleteCustomProfile,
         saveCloudSnapshot,
         deleteCloudSnapshot,

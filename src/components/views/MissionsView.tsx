@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
+import { useLocale } from '../../context/LocaleContext';
 import { Mission, MissionType, MissionStatus } from '../../types';
 import {
   Compass,
@@ -31,6 +32,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
     removeMissionStep,
     deleteMission,
   } = useGame();
+  const { locale, appCopy } = useLocale();
+  const t = appCopy.missions;
 
   const [filterType, setFilterType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,21 +109,21 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono-code font-semibold bg-emerald-500/12 text-emerald-300 border border-emerald-500/35">
             <CheckCircle2 className="w-3 h-3" />
-            Terminée
+            {t.statusCompleted}
           </span>
         );
       case 'in_progress':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono-code font-semibold bg-[var(--jx-accent-alt)]/12 text-[var(--jx-accent-alt)] border border-[var(--jx-accent-alt)]/35">
             <Clock className="w-3 h-3" />
-            En cours
+            {t.statusInProgress}
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono-code font-semibold bg-white/[0.04] text-slate-300 border border-white/10">
             <Circle className="w-3 h-3" />
-            Disponible
+            {t.statusAvailable}
           </span>
         );
     }
@@ -129,13 +132,13 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
   const getTypeLabel = (type: MissionType) => {
     switch (type) {
       case 'main':
-        return <span className="text-[10px] font-mono-code font-bold tracking-wider uppercase text-[var(--jx-accent)]">Principale</span>;
+        return <span className="text-[10px] font-mono-code font-bold tracking-wider uppercase text-[var(--jx-accent)]">{t.filterMain}</span>;
       case 'side':
-        return <span className="text-[10px] font-mono-code font-bold tracking-wider uppercase text-[var(--jx-accent-alt)]">Secondaire</span>;
+        return <span className="text-[10px] font-mono-code font-bold tracking-wider uppercase text-[var(--jx-accent-alt)]">{t.filterSide}</span>;
       case 'bounty':
-        return <span className="text-[10px] font-mono-code font-bold tracking-wider uppercase text-amber-300">Contrat / Prime</span>;
+        return <span className="text-[10px] font-mono-code font-bold tracking-wider uppercase text-amber-300">{t.filterBounty}</span>;
       case 'activity':
-        return <span className="text-[10px] font-mono-code font-bold tracking-wider uppercase text-fuchsia-300">Activité</span>;
+        return <span className="text-[10px] font-mono-code font-bold tracking-wider uppercase text-fuchsia-300">{t.filterActivity}</span>;
     }
   };
 
@@ -146,11 +149,11 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
           <div className="flex items-center gap-2.5">
             <Compass className="w-5 h-5 text-[var(--jx-accent-alt)]" />
             <h1 className="text-xl sm:text-2xl font-bold font-hud tracking-wide text-white uppercase">
-              Journal des missions
+              {appCopy.progression.tabMissions}
             </h1>
           </div>
           <p className="text-slate-400 text-xs sm:text-sm mt-1">
-            Créez, modifiez et suivez vos quêtes principales, contrats et étapes personnalisées.
+            {appCopy.progression.subtitle}
           </p>
         </div>
 
@@ -159,7 +162,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
           className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-[var(--jx-accent)] to-[var(--jx-accent-warm)] hover:brightness-110 text-white font-hud font-bold text-xs tracking-wider uppercase shadow-lg transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>Nouvelle mission</span>
+          <span>{appCopy.progression.newMission}</span>
         </button>
       </div>
 
@@ -169,7 +172,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Rechercher par nom, quartier ou contact..."
+            placeholder={t.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="jitalx-input w-full pl-10 pr-4 py-2 text-sm"
@@ -178,12 +181,12 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
           {[
-            { id: 'all', label: 'Toutes' },
-            { id: 'in_progress', label: 'En cours' },
-            { id: 'main', label: 'Principales' },
-            { id: 'side', label: 'Secondaires' },
-            { id: 'bounty', label: 'Primes' },
-            { id: 'completed', label: 'Terminées' },
+            { id: 'all', label: t.filterAll },
+            { id: 'in_progress', label: t.statusInProgress },
+            { id: 'main', label: t.filterMain },
+            { id: 'side', label: t.filterSide },
+            { id: 'bounty', label: t.filterBounty },
+            { id: 'completed', label: t.statusCompleted },
           ].map((chip) => (
             <button
               key={chip.id}
@@ -205,12 +208,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
         {filteredMissions.length === 0 ? (
           <div className="jitalx-panel p-10 text-center rounded-xl">
             <Compass className="w-9 h-9 text-slate-600 mx-auto mb-2.5" />
-            <div className="text-slate-200 font-hud font-semibold">
-              Aucune mission ne correspond à vos critères.
-            </div>
-            <div className="text-xs text-slate-400 mt-1">
-              Modifiez votre recherche ou ajoutez une nouvelle quête.
-            </div>
+            <div className="text-slate-200 font-hud font-semibold">{t.emptyTitle}</div>
+            <div className="text-xs text-slate-400 mt-1">{t.emptyDesc}</div>
           </div>
         ) : (
           filteredMissions.map((mission) => {
@@ -228,13 +227,13 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                     <form onSubmit={(e) => saveEdit(e, mission.id)} className="space-y-3">
                       <div className="flex items-center justify-between border-b border-white/10 pb-2">
                         <span className="text-xs font-hud font-bold text-[var(--jx-accent-alt)] uppercase tracking-wider">
-                          Modifier la mission
+                          {t.editTitle}
                         </span>
                         <button
                           type="button"
                           onClick={() => setEditingId(null)}
                           className="p-1 text-slate-400 hover:text-white cursor-pointer"
-                          aria-label="Annuler la modification"
+                          aria-label={appCopy.common.cancel}
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -246,7 +245,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                           required
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
-                          placeholder="Titre de la mission"
+                          placeholder={appCopy.modalNew.fieldTitle}
                           className="jitalx-input w-full px-3 py-2 text-sm"
                         />
                         <select
@@ -254,10 +253,10 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                           onChange={(e) => setEditType(e.target.value as MissionType)}
                           className="jitalx-input w-full px-3 py-2 text-sm"
                         >
-                          <option value="main">Principale</option>
-                          <option value="side">Secondaire</option>
-                          <option value="bounty">Contrat / Prime</option>
-                          <option value="activity">Activité</option>
+                          <option value="main">{t.filterMain}</option>
+                          <option value="side">{t.filterSide}</option>
+                          <option value="bounty">{t.filterBounty}</option>
+                          <option value="activity">{t.filterActivity}</option>
                         </select>
                       </div>
 
@@ -266,14 +265,14 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                           type="text"
                           value={editDistrict}
                           onChange={(e) => setEditDistrict(e.target.value)}
-                          placeholder="Quartier"
+                          placeholder={t.districtLabel}
                           className="jitalx-input w-full px-3 py-2 text-xs"
                         />
                         <input
                           type="text"
                           value={editGiver}
                           onChange={(e) => setEditGiver(e.target.value)}
-                          placeholder="Donneur d'ordre"
+                          placeholder={t.giverLabel}
                           className="jitalx-input w-full px-3 py-2 text-xs"
                         />
                       </div>
@@ -282,7 +281,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                         rows={2}
                         value={editDesc}
                         onChange={(e) => setEditDesc(e.target.value)}
-                        placeholder="Description"
+                        placeholder={appCopy.modalNew.fieldDescription}
                         className="jitalx-input w-full px-3 py-2 text-xs"
                       />
 
@@ -300,7 +299,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                           min="0"
                           value={editCredits}
                           onChange={(e) => setEditCredits(e.target.value)}
-                          placeholder="Crédits"
+                          placeholder={locale === 'fr' ? 'Crédits' : 'Credits'}
                           className="jitalx-input w-full px-3 py-2 text-xs tabular-nums"
                         />
                       </div>
@@ -311,14 +310,14 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                           onClick={() => setEditingId(null)}
                           className="px-3 py-1.5 rounded-md bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs text-slate-300 cursor-pointer"
                         >
-                          Annuler
+                          {appCopy.common.cancel}
                         </button>
                         <button
                           type="submit"
                           className="px-3.5 py-1.5 rounded-md bg-[var(--jx-accent-alt)] hover:brightness-110 text-slate-950 font-hud font-bold text-xs flex items-center gap-1 cursor-pointer"
                         >
                           <Check className="w-3.5 h-3.5" />
-                          <span>Enregistrer</span>
+                          <span>{appCopy.common.save}</span>
                         </button>
                       </div>
                     </form>
@@ -338,15 +337,15 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                           <button
                             onClick={() => startEditing(mission)}
                             className="p-1.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-[var(--jx-accent-alt)] border border-white/10 cursor-pointer transition-colors"
-                            title="Modifier la mission"
-                            aria-label="Modifier la mission"
+                            title={t.editTitle}
+                            aria-label={t.editTitle}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => toggleMissionStatus(mission.id)}
                             className="cursor-pointer"
-                            title="Cliquer pour changer de statut"
+                            title={locale === 'fr' ? 'Cliquer pour changer de statut' : 'Click to cycle status'}
                           >
                             {getStatusBadge(mission.status)}
                           </button>
@@ -357,14 +356,14 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                         <div>
                           <h3 className="text-lg font-bold font-hud text-white">{mission.title}</h3>
                           <p className="text-xs text-slate-400 mt-0.5">
-                            Donneur d’ordre : <span className="text-slate-200">{mission.giver}</span>
+                            {t.giverLabel}: <span className="text-slate-200">{mission.giver}</span>
                           </p>
                         </div>
 
                         <button
                           onClick={() => setExpandedMissionId(isExpanded ? null : mission.id)}
                           className="p-1.5 text-slate-400 hover:text-[var(--jx-accent-alt)] bg-white/[0.04] hover:bg-white/[0.08] rounded-md border border-white/10 cursor-pointer transition-colors"
-                          aria-label={isExpanded ? 'Réduire' : 'Déplier'}
+                          aria-label={isExpanded ? 'Collapse' : 'Expand'}
                         >
                           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </button>
@@ -375,7 +374,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                       {mission.steps.length > 0 && (
                         <div className="mt-4 pt-3 border-t border-white/10">
                           <div className="flex items-center justify-between text-xs font-mono-code text-slate-400 mb-1.5 tabular-nums">
-                            <span>Étapes complétées</span>
+                            <span>{t.stepsHeading}</span>
                             <span className="text-[var(--jx-accent-alt)] font-semibold">
                               {completedStepsCount} / {mission.steps.length}
                             </span>
@@ -394,7 +393,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                       {isExpanded && (
                         <div className="mt-4 pt-3 border-t border-white/10 space-y-2.5">
                           <div className="text-[11px] font-mono-code uppercase tracking-wider text-slate-400">
-                            Étapes de la mission
+                            {t.stepsHeading}
                           </div>
                           {mission.steps.map((step) => (
                             <div
@@ -423,8 +422,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                                 type="button"
                                 onClick={() => removeMissionStep(mission.id, step.id)}
                                 className="p-1 text-slate-500 hover:text-rose-400 cursor-pointer"
-                                title="Supprimer cette étape"
-                                aria-label="Supprimer cette étape"
+                                title={appCopy.common.delete}
+                                aria-label={appCopy.common.delete}
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -439,14 +438,14 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                               onChange={(e) =>
                                 setNewStepInputs((prev) => ({ ...prev, [mission.id]: e.target.value }))
                               }
-                              placeholder="Ajouter une nouvelle étape..."
+                              placeholder={t.addStepPlaceholder}
                               className="jitalx-input flex-1 px-3 py-1.5 text-xs"
                             />
                             <button
                               type="submit"
                               className="px-3 py-1.5 rounded-md bg-[var(--jx-accent-alt)]/15 hover:bg-[var(--jx-accent-alt)]/25 border border-[var(--jx-accent-alt)]/40 text-[var(--jx-accent-alt)] text-xs font-mono-code font-semibold cursor-pointer"
                             >
-                              + Étape
+                              + {t.addStepBtn}
                             </button>
                           </form>
 
@@ -456,14 +455,14 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
                               className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 font-mono-code cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                              <span>Supprimer la mission</span>
+                              <span>{appCopy.common.delete}</span>
                             </button>
 
                             <button
                               onClick={() => toggleMissionStatus(mission.id)}
                               className="px-3 py-1.5 rounded-md bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs font-mono-code text-[var(--jx-accent-alt)] cursor-pointer"
                             >
-                              Changer d&apos;état (Disponible → En cours → Terminée)
+                              {t.statusAvailable} → {t.statusInProgress} → {t.statusCompleted}
                             </button>
                           </div>
                         </div>
@@ -471,9 +470,13 @@ export const MissionsView: React.FC<MissionsViewProps> = ({ onOpenNewItemModal }
 
                       <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs font-mono-code tabular-nums">
                         <div className="flex items-center gap-3">
-                          <span className="text-[var(--jx-accent-alt)]">+{mission.rewardXp.toLocaleString('fr-FR')} XP</span>
+                          <span className="text-[var(--jx-accent-alt)]">
+                            +{mission.rewardXp.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} XP
+                          </span>
                           <span className="text-slate-600" aria-hidden="true">·</span>
-                          <span className="text-amber-300">+{mission.rewardCredits.toLocaleString('fr-FR')} Cr</span>
+                          <span className="text-amber-300">
+                            +{mission.rewardCredits.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} Cr
+                          </span>
                         </div>
                       </div>
                     </>

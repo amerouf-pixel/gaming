@@ -1,6 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGame } from '../context/GameContext';
+import { useLocale, LanguageSwitcher } from '../context/LocaleContext';
+import { useAuth } from '../context/AuthContext';
 import { cyberAudio } from '../utils/cyberAudio';
+import {
+  parseOverlayUrlParams,
+  buildOverlayObsUrl,
+  OverlayBgMode,
+  OverlayLayoutMode,
+  OverlayCamPosition,
+  OverlayCamSize,
+} from '../utils/obsOverlayParams';
+import {
+  LocalObsWebSocketClient,
+  ObsSceneInfo,
+  ObsStreamStatus,
+  ObsConnectionState,
+} from '../utils/obsWebSocket';
 import {
   Video,
   Play,
@@ -33,13 +49,30 @@ import {
   Camera,
   CameraOff,
   FileText,
+  Plug,
+  Wifi,
+  RefreshCw,
+  ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 
-type OverlayBgMode = 'chroma' | 'transparent' | 'sunset';
-type LayoutPreset = 'landscape' | 'vertical';
-type CameraPosition = 'bottom-right' | 'top-right' | 'left' | 'hidden';
-type CameraSize = 'sm' | 'md' | 'lg';
-type ControlTab = 'scene' | 'panels' | 'alerts';
+type LayoutPreset = OverlayLayoutMode;
+type CameraPosition = OverlayCamPosition;
+type CameraSize = OverlayCamSize;
+type ControlTab = 'scene' | 'panels' | 'alerts' | 'connections';
+
+interface IntegrationsStatusResponse {
+  twitchConfigured: boolean;
+  youtubeConfigured: boolean;
+  callbackUrls: {
+    twitch: string;
+    youtube: string;
+  };
+  connections: {
+    twitch: { connected: boolean; handle?: string; channelTitle?: string };
+    youtube: { connected: boolean; handle?: string; channelTitle?: string };
+  };
+}
 
 interface StreamerAlert {
   id: string;
@@ -105,38 +138,49 @@ function loadStudioPrefs(): StudioPreferences {
 }
 
 export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
-  const { overallProgress, stats, activeProfile, activeTheme, missions, toggleMissionStep } = useGame();
+  const {
+    overallProgress,
+    stats,
+    profiles,
+    activeProfile,
+    setActiveProfile,
+    selectProfileById,
+    activeTheme,
+    missions,
+    toggleMissionStep,
+  } = useGame();
+  const { locale, appCopy } = useLocale();
+  const { user, getIdToken } = useAuth();
+  const ov = appCopy.overlay;
+  const isFr = locale === 'fr';
 
-  // Lecture des paramètres URL OBS (?bg=transparent|chroma|sunset&layout=vertical|landscape&clean=1)
-  const getInitialParams = () => {
-    if (typeof window === 'undefined') {
-      return { bg: 'sunset' as OverlayBgMode, layout: 'landscape' as LayoutPreset, clean: false };
-    }
-    const params = new URLSearchParams(window.location.search);
-    const bgParam = params.get('bg');
-    const layoutParam = params.get('layout');
-    const cleanParam = params.get('clean');
+  // Full OBS URL parameter parsing (?bg=&layout=&clean=&profile=&cam=&camSize=&waiting=&hideSig=)
+  const [initialParams] = useState(() =>
+    typeof window !== 'undefined' ? parseOverlayUrlParams(window.location.search) : {}
+  );
 
-    const bg: OverlayBgMode =
-      bgParam === 'chroma' || bgParam === 'transparent' || bgParam === 'sunset'
-        ? bgParam
-        : 'sunset';
-    const layout: LayoutPreset = layoutParam === 'vertical' ? 'vertical' : 'landscape';
-    const clean = cleanParam === '1' || cleanParam === 'true';
-
-    return { bg, layout, clean };
-  };
-
-  const initial = getInitialParams();
-
-  const [bgMode, setBgMode] = useState<OverlayBgMode>(initial.bg);
-  const [layoutPreset, setLayoutPreset] = useState<LayoutPreset>(initial.layout);
-  const [cleanCapture, setCleanCapture] = useState<boolean>(initial.clean);
-  const [showWaitingBanner, setShowWaitingBanner] = useState<boolean>(false);
+  const [bgMode, setBgMode] = useState<OverlayBgMode>(initialParams.bgMode ?? 'sunset');
+  const [layoutPreset, setLayoutPreset] = useState<LayoutPreset>(initialParams.layout ?? 'landscape');
+  const [cleanCapture, setCleanCapture] = useState<boolean>(initialParams.cleanMode ?? false);
+  const [showWaitingBanner, setShowWaitingBanner] = useState<boolean>(initialParams.waiting ?? false);
   const [controlTab, setControlTab] = useState<ControlTab>('scene');
 
-  // Préférences studio unifiées (caméra + panneaux secondaires)
-  const [prefs, setPrefs] = useState<StudioPreferences>(() => loadStudioPrefs());
+  // Apply profile query param once on mount if provided (?profile=<id>)
+  useEffect(() => {
+    if (initialParams.profileId) {
+      selectProfileById(initialParams.profileId);
+    }
+  }, [initialParams.profileId, selectProfileById]);
+
+  // Unified studio preferences (webcam + secondary panels), with URL param overrides
+  const [prefs, setPrefs] = useState<StudioPreferences>(() => {
+    const base = loadStudioPrefs();
+    return {
+      ...base,
+      ...(initialParams.camPos ? { cameraPos: initialParams.camPos } : {}),
+      ...(initialParams.camSize ? { cameraSize: initialParams.camSize } : {}),
+    };
+  });
 
   const updatePrefs = useCallback((patch: Partial<StudioPreferences>) => {
     setPrefs((prev) => ({ ...prev, ...patch }));
@@ -161,9 +205,9 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
   });
   const [challengeLabel, setChallengeLabel] = useState<string>(() => {
     try {
-      return localStorage.getItem(CHALLENGE_LABEL_KEY) || 'Défis / Tentatives';
+      return localStorage.getItem(CHALLENGE_LABEL_KEY) || 'Challenges / Attempts';
     } catch {
-      return 'Défis / Tentatives';
+      return 'Challenges / Attempts';
     }
   });
   const [challengeCount, setChallengeCount] = useState<number>(() => {
@@ -183,12 +227,13 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
   });
   const [streamTitle, setStreamTitle] = useState<string>(() => {
     try {
-      return localStorage.getItem(STREAM_TITLE_KEY) || 'Objectif 100 % — Jour 1';
+      return localStorage.getItem(STREAM_TITLE_KEY) || '100% Run — Day 1';
     } catch {
-      return 'Objectif 100 % — Jour 1';
+      return '100% Run — Day 1';
     }
   });
   const [hideSignature, setHideSignature] = useState<boolean>(() => {
+    if (typeof initialParams.hideSignature === 'boolean') return initialParams.hideSignature;
     try {
       return localStorage.getItem(HIDE_SIGNATURE_KEY) === 'true';
     } catch {
@@ -199,6 +244,223 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
   const [copiedObsUrl, setCopiedObsUrl] = useState<boolean>(false);
   const [copyError, setCopyError] = useState<boolean>(false);
   const [activeAlert, setActiveAlert] = useState<StreamerAlert | null>(null);
+
+  // Real optional local OBS WebSocket v5 state
+  const obsClientRef = useRef<LocalObsWebSocketClient | null>(null);
+  const [obsWsUrl, setObsWsUrl] = useState<string>('ws://127.0.0.1:4455');
+  const [obsWsPassword, setObsWsPassword] = useState<string>('');
+  const [obsWsState, setObsWsState] = useState<ObsConnectionState>('disconnected');
+  const [obsWsError, setObsWsError] = useState<string | null>(null);
+  const [obsWsVersion, setObsWsVersion] = useState<string>('');
+  const [obsScenes, setObsScenes] = useState<ObsSceneInfo[]>([]);
+  const [obsCurrentScene, setObsCurrentScene] = useState<string>('');
+  const [obsStreamStatus, setObsStreamStatus] = useState<ObsStreamStatus | null>(null);
+
+  // Real optional Twitch / YouTube OAuth backend status
+  const [integrationsStatus, setIntegrationsStatus] = useState<IntegrationsStatusResponse | null>(null);
+  const [integrationsLoading, setIntegrationsLoading] = useState<boolean>(false);
+  const [integrationsMessage, setIntegrationsMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [oauthFallbackUrl, setOauthFallbackUrl] = useState<{ provider: 'twitch' | 'youtube'; url: string } | null>(null);
+
+  // Cleanup OBS WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      obsClientRef.current?.disconnect();
+      obsClientRef.current = null;
+    };
+  }, []);
+
+  const refreshObsData = useCallback(async () => {
+    const client = obsClientRef.current;
+    if (!client) return;
+    try {
+      const [sceneRes, streamRes] = await Promise.all([
+        client.getSceneList(),
+        client.getStreamStatus(),
+      ]);
+      setObsScenes(sceneRes.scenes);
+      setObsCurrentScene(sceneRes.currentProgramSceneName);
+      setObsStreamStatus(streamRes);
+      setObsWsError(null);
+    } catch (err) {
+      setObsWsError(err instanceof Error ? err.message : 'OBS refresh error');
+    }
+  }, []);
+
+  const handleConnectObsWs = async () => {
+    cyberAudio.playClick();
+    setObsWsState('connecting');
+    setObsWsError(null);
+    try {
+      if (!obsClientRef.current) {
+        obsClientRef.current = new LocalObsWebSocketClient();
+      }
+      const res = await obsClientRef.current.connect(obsWsUrl, obsWsPassword, (reason) => {
+        setObsWsState('disconnected');
+        setObsScenes([]);
+        setObsCurrentScene('');
+        setObsStreamStatus(null);
+        setObsWsError(
+          isFr
+            ? `Connexion OBS fermée (${reason}).`
+            : `OBS connection closed (${reason}).`
+        );
+      });
+      setObsWsVersion(res.obsWebSocketVersion);
+      setObsWsState('connected');
+      await refreshObsData();
+    } catch (err) {
+      setObsWsState('error');
+      setObsWsError(err instanceof Error ? err.message : 'Unable to connect to OBS WebSocket.');
+    }
+  };
+
+  const handleDisconnectObsWs = () => {
+    cyberAudio.playClick();
+    obsClientRef.current?.disconnect();
+    setObsWsState('disconnected');
+    setObsWsError(null);
+    setObsScenes([]);
+    setObsCurrentScene('');
+    setObsStreamStatus(null);
+  };
+
+  const handleSwitchObsScene = async (sceneName: string) => {
+    const client = obsClientRef.current;
+    if (!client) return;
+    cyberAudio.playChirp();
+    try {
+      await client.setCurrentProgramScene(sceneName);
+      setObsCurrentScene(sceneName);
+      setObsWsError(null);
+    } catch (err) {
+      setObsWsError(err instanceof Error ? err.message : 'Failed to switch OBS scene.');
+    }
+  };
+
+  const fetchIntegrationsStatus = useCallback(async () => {
+    setIntegrationsLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (user) {
+        const token = await getIdToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
+      const resp = await fetch('/api/integrations/status', { headers });
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+      const data = (await resp.json()) as IntegrationsStatusResponse;
+      setIntegrationsStatus(data);
+    } catch {
+      setIntegrationsStatus(null);
+    } finally {
+      setIntegrationsLoading(false);
+    }
+  }, [user, getIdToken]);
+
+  useEffect(() => {
+    if (controlTab === 'connections') {
+      void fetchIntegrationsStatus();
+    }
+  }, [controlTab, fetchIntegrationsStatus]);
+
+  // Listen for strict-origin OAuth popup callback messages
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const payload = event.data as {
+        type?: string;
+        provider?: 'twitch' | 'youtube';
+        ok?: boolean;
+        handle?: string;
+        channelTitle?: string;
+        error?: string;
+      } | null;
+      if (!payload || payload.type !== 'JITALX_OAUTH_RESULT') return;
+      setOauthFallbackUrl(null);
+      if (payload.ok) {
+        setIntegrationsMessage({
+          type: 'ok',
+          text: isFr
+            ? `${payload.provider === 'twitch' ? 'Twitch' : 'YouTube'} connecté : ${payload.channelTitle || payload.handle || 'OK'}`
+            : `${payload.provider === 'twitch' ? 'Twitch' : 'YouTube'} connected: ${payload.channelTitle || payload.handle || 'OK'}`,
+        });
+        void fetchIntegrationsStatus();
+      } else {
+        setIntegrationsMessage({
+          type: 'err',
+          text: payload.error || (isFr ? 'Échec OAuth.' : 'OAuth failed.'),
+        });
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [isFr, fetchIntegrationsStatus]);
+
+  const handleStartOAuth = async (provider: 'twitch' | 'youtube') => {
+    cyberAudio.playClick();
+    setIntegrationsMessage(null);
+    setOauthFallbackUrl(null);
+    if (!user) {
+      setIntegrationsMessage({ type: 'err', text: ov.signInRequired });
+      return;
+    }
+    try {
+      const token = await getIdToken();
+      if (!token) {
+        setIntegrationsMessage({ type: 'err', text: ov.signInRequired });
+        return;
+      }
+      const resp = await fetch(`/api/oauth/${provider}/url`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await resp.json()) as { ok?: boolean; url?: string; error?: string };
+      if (!resp.ok || !data.url) {
+        setIntegrationsMessage({
+          type: 'err',
+          text: data.error || (isFr ? 'Intégration non configurée.' : 'Integration not configured.'),
+        });
+        return;
+      }
+      // Provide direct link fallback in case iframe blocks popups
+      setOauthFallbackUrl({ provider, url: data.url });
+      const popup = window.open(data.url, `jitalx_oauth_${provider}`, 'width=560,height=680');
+      if (popup) {
+        setOauthFallbackUrl(null);
+      }
+    } catch (err) {
+      setIntegrationsMessage({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'OAuth error',
+      });
+    }
+  };
+
+  const handleDisconnectOAuth = async (provider: 'twitch' | 'youtube') => {
+    cyberAudio.playClick();
+    setIntegrationsMessage(null);
+    if (!user) return;
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      const resp = await fetch(`/api/oauth/${provider}/disconnect`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (resp.ok) {
+        setIntegrationsMessage({
+          type: 'ok',
+          text: isFr
+            ? `${provider === 'twitch' ? 'Twitch' : 'YouTube'} déconnecté.`
+            : `${provider === 'twitch' ? 'Twitch' : 'YouTube'} disconnected.`,
+        });
+        void fetchIntegrationsStatus();
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   // Chronomètre de session live
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
@@ -321,15 +583,17 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
     cyberAudio.playFanfare();
     const map: Record<StreamerAlert['kind'], { title: string; subtitle: string }> = {
       follower: {
-        title: 'NOUVEAU FOLLOWER',
-        subtitle: `Bienvenue dans l'escouade de ${streamerName || '@Runner_10J'}`,
+        title: isFr ? 'NOUVEAU FOLLOWER' : 'NEW FOLLOWER',
+        subtitle: isFr
+          ? `Bienvenue dans l'escouade de ${streamerName || '@Runner_10J'}`
+          : `Welcome to ${streamerName || '@Runner_10J'}'s squad`,
       },
       sub: {
-        title: 'ABONNEMENT LIVE',
-        subtitle: 'Merci pour le soutien au stream !',
+        title: isFr ? 'ABONNEMENT LIVE' : 'LIVE SUBSCRIPTION',
+        subtitle: isFr ? 'Merci pour le soutien au stream !' : 'Thank you for supporting the stream!',
       },
       goal: {
-        title: `PALIER ATTEINT · ${overallProgress}%`,
+        title: isFr ? `PALIER ATTEINT · ${overallProgress}%` : `MILESTONE REACHED · ${overallProgress}%`,
         subtitle: `${stats.missionsDone}/${stats.missionsTotal} missions · ${stats.collectiblesDone}/${stats.collectiblesTotal} collectibles`,
       },
     };
@@ -353,10 +617,19 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
     }
   };
 
-  const obsUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/overlay?bg=${bgMode}&layout=${layoutPreset}&clean=1`
-      : `/overlay?bg=${bgMode}&layout=${layoutPreset}&clean=1`;
+  const obsUrl = buildOverlayObsUrl(
+    typeof window !== 'undefined' ? window.location.origin : '',
+    {
+      bgMode,
+      layout: layoutPreset,
+      clean: true,
+      profileId: activeProfile.id,
+      camPos: prefs.cameraPos,
+      camSize: prefs.cameraSize,
+      waiting: showWaitingBanner,
+      hideSignature,
+    }
+  );
 
   const copyObsBrowserSourceUrl = async () => {
     setCopyError(false);
@@ -460,15 +733,21 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
         <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
           <div className="px-4 py-2 border border-dashed border-white/15 bg-black/25 text-center">
             <div className="text-[10px] font-mono-code uppercase tracking-widest text-slate-300/80">
-              ZONE CAPTURE JEU / VIDÉO ({isVertical ? '9:16 VERTICAL' : '16:9 PAYSAGE'})
+              {isFr
+                ? `ZONE CAPTURE JEU / VIDÉO (${isVertical ? '9:16 VERTICAL' : '16:9 PAYSAGE'})`
+                : `GAME / VIDEO CAPTURE AREA (${isVertical ? '9:16 VERTICAL' : '16:9 LANDSCAPE'})`}
             </div>
             <div className="text-[10px] text-slate-400/80 mt-0.5">
-              Mode actif :{' '}
+              {isFr ? 'Mode actif : ' : 'Active mode: '}
               {bgMode === 'chroma'
-                ? 'Fond Vert Chroma (#00ff00)'
+                ? isFr
+                  ? 'Fond Vert Chroma (#00ff00)'
+                  : 'Chroma Green (#00ff00)'
                 : bgMode === 'transparent'
-                ? 'Transparent OBS'
-                : 'Fond Sunset Néon'}
+                ? isFr
+                  ? 'Transparent OBS'
+                  : 'OBS Transparent'
+                : 'Sunset Neon'}
             </div>
           </div>
         </div>
@@ -480,7 +759,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
           <div className="bg-[#120428]/95 border-2 border-[#00f0ff] px-4 py-3 shadow-[0_0_30px_rgba(0,240,255,0.45)] jitalx-chamfer-sm">
             <div className="flex items-center gap-2 text-[10px] font-mono-code uppercase tracking-widest text-[#ff7b00]">
               <Bell className="w-3.5 h-3.5 text-[#ff2a85]" />
-              <span>ALERTE STREAM</span>
+              <span>{isFr ? 'ALERTE STREAM' : 'STREAM ALERT'}</span>
             </div>
             <div className="font-hud font-bold text-base text-white mt-0.5">
               {activeAlert.title}
@@ -496,13 +775,24 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
           <div className="bg-[#160631]/92 backdrop-blur-md border border-[#ff2a85]/60 shadow-[0_0_35px_rgba(255,42,133,0.3)] p-6 max-w-md text-center jitalx-chamfer">
             <div className="inline-flex items-center gap-2 text-[11px] font-mono-code text-[#00f0ff] uppercase tracking-widest mb-2">
               <Radio className="w-3.5 h-3.5 text-[#ff2a85]" />
-              <span>ÉCRAN D&apos;ATTENTE · {activeProfile.universe}</span>
+              <span>{ov.bgWaiting} · {activeProfile.universe}</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-hud font-bold text-white uppercase tracking-wide leading-tight">
-              Le live commence{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff2a85] via-[#ff7b00] to-[#00f0ff]">
-                bientôt
-              </span>
+              {isFr ? (
+                <>
+                  Le live commence{' '}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff2a85] via-[#ff7b00] to-[#00f0ff]">
+                    bientôt
+                  </span>
+                </>
+              ) : (
+                <>
+                  Stream starting{' '}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff2a85] via-[#ff7b00] to-[#00f0ff]">
+                    soon
+                  </span>
+                </>
+              )}
             </h2>
             <p className="text-xs text-slate-300 mt-2">
               {streamerName || '@Runner_10J'} · {streamTitle}
@@ -520,7 +810,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               <div className="flex items-center justify-between text-[10px] font-mono-code uppercase">
                 <span className="text-[#00f0ff] flex items-center gap-1.5 font-bold">
                   <Target className="w-3 h-3 text-[#ff2a85]" />
-                  <span>Objectif Stream</span>
+                  <span>{ov.activeMissionWidget}</span>
                 </span>
                 <span className="text-[#ff7b00] font-bold tabular-nums">
                   {completedStepsCount}/{activeMission.steps.length}
@@ -531,7 +821,11 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               </div>
               <div className="text-[11px] text-slate-300 font-mono-code flex items-center justify-between gap-2">
                 <span className="truncate">
-                  {nextMissionStep ? `→ ${nextMissionStep.text}` : 'Mission complétée'}
+                  {nextMissionStep
+                    ? `→ ${nextMissionStep.text}`
+                    : isFr
+                    ? 'Mission complétée'
+                    : 'Mission completed'}
                 </span>
                 {!cleanCapture && nextMissionStep && (
                   <button
@@ -612,7 +906,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               <div className="flex items-center justify-between text-[10px] font-mono-code uppercase text-[#00f0ff]">
                 <span className="flex items-center gap-1">
                   <MessageSquare className="w-3 h-3 text-[#ff2a85]" />
-                  <span>Zone Chat</span>
+                  <span>{isFr ? 'Zone Chat' : 'Chat Box'}</span>
                 </span>
                 <span className="text-slate-400">HUD</span>
               </div>
@@ -670,7 +964,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                 <div className="text-center px-3 pointer-events-none">
                   <Camera className="w-5 h-5 text-[#00f0ff]/65 mx-auto mb-0.5" />
                   <span className="text-[9px] font-mono-code uppercase tracking-wider text-slate-300/80 block">
-                    CAMÉRA STREAMER
+                    {ov.camFrameLabel}
                   </span>
                 </div>
               )}
@@ -723,7 +1017,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   <div className="flex items-center justify-between text-[11px] font-mono-code">
                     <span className="text-slate-300 uppercase flex items-center gap-1">
                       <Trophy className="w-3 h-3 text-[#ff7b00]" />
-                      <span>Progression</span>
+                      <span>{ov.progressWidget}</span>
                     </span>
                     <span className="text-[#00f0ff] font-bold tabular-nums">{overallProgress}%</span>
                   </div>
@@ -761,7 +1055,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                 >
                   <div className={isVertical ? '' : 'md:text-right'}>
                     <div className="text-[9px] font-mono-code uppercase tracking-widest text-[#ff7b00]">
-                      Chrono Live
+                      {isFr ? 'Chrono Live' : 'Live Timer'}
                     </div>
                     <div className="font-mono-code font-bold text-lg sm:text-xl text-white tabular-nums tracking-wider leading-none mt-0.5">
                       {formatTimer(elapsedSeconds)}
@@ -776,7 +1070,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                           setIsTimerRunning((prev) => !prev);
                         }}
                         className="p-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#00f0ff]/40 text-[#00f0ff] cursor-pointer"
-                        title={isTimerRunning ? 'Pause' : 'Démarrer'}
+                        title={isTimerRunning ? ov.timerPause : ov.timerStart}
                       >
                         {isTimerRunning ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
                       </button>
@@ -787,7 +1081,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                           setElapsedSeconds(0);
                         }}
                         className="p-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#ff2a85]/40 text-[#ff2a85] cursor-pointer"
-                        title="Réinitialiser"
+                        title={ov.timerReset}
                       >
                         <RotateCcw className="w-3 h-3" />
                       </button>
@@ -802,7 +1096,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
         {!hideSignature && (
           <div className="flex justify-end">
             <span className="px-2 py-0.5 bg-[#120428]/90 border border-[#ff2a85]/35 text-[9px] font-mono-code tracking-widest text-slate-300">
-              JITALX • 10JITAL
+              JITALX • 10JITAL PROD
             </span>
           </div>
         )}
@@ -811,7 +1105,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
   );
 
   // =========================================================================
-  // MODE CAPTURE PROPRE (OBS SOURCE NAVIGATEUR / TOUCHE H)
+  // CLEAN CAPTURE MODE (OBS BROWSER SOURCE / KEY H)
   // =========================================================================
   if (cleanCapture) {
     return (
@@ -826,7 +1120,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
             className="px-3 py-1.5 bg-[#120428]/95 border border-[#00f0ff]/70 text-[#00f0ff] text-[11px] font-mono-code uppercase flex items-center gap-1.5 cursor-pointer shadow-lg"
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>Quitter Capture Propre (H / Échap)</span>
+            <span>{isFr ? 'Quitter Capture Propre (H / Échap)' : 'Exit Clean Capture (H / Esc)'}</span>
           </button>
         </div>
         {renderBroadcastScene()}
@@ -846,7 +1140,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
       {/* Top Broadcast Console Toolbar */}
       <header className="sticky top-0 z-40 bg-[#120428]/95 backdrop-blur-md border-b border-[#ff2a85]/40 px-4 sm:px-6 py-3">
         <div className="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
               onClick={() => {
@@ -856,7 +1150,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               className="px-3 py-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#ff2a85]/45 text-slate-200 hover:text-[#00f0ff] text-xs font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Retour HUD</span>
+              <span>{ov.exitBtn}</span>
             </button>
 
             <div className="flex items-center gap-2">
@@ -866,13 +1160,38 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   JITALX STREAMER STUDIO
                 </div>
                 <div className="text-[10px] font-mono-code text-[#00f0ff]/85 mt-0.5">
-                  Console de diffusion &amp; Overlay OBS
+                  {isFr ? 'Console de diffusion & Overlay OBS' : 'Broadcast Console & OBS Overlay'}
                 </div>
               </div>
             </div>
+
+            {/* Multi-game Profile Switcher inside Studio */}
+            <div className="flex items-center gap-1.5 bg-[#0b021a] border border-white/15 px-2 py-1">
+              <span className="text-[10px] font-mono-code uppercase text-slate-400">
+                {ov.profileSelectorLabel}:
+              </span>
+              <select
+                aria-label={ov.profileSelectorLabel}
+                value={activeProfile.id}
+                onChange={(e) => {
+                  const found = profiles.find((p) => p.id === e.target.value);
+                  if (found) {
+                    cyberAudio.playClick();
+                    setActiveProfile(found);
+                  }
+                }}
+                className="bg-transparent text-xs font-mono-code text-[#00f0ff] focus:outline-none cursor-pointer"
+              >
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id} className="bg-[#120428] text-white">
+                    {p.name} ({p.universe})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Format Switch 16:9 / 9:16 + Background Mode */}
+          {/* Format Switch 16:9 / 9:16 + Actions + Language */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 bg-[#0b021a] border border-[#ff2a85]/35 p-1">
               <button
@@ -888,7 +1207,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                 }`}
               >
                 <Monitor className="w-3.5 h-3.5" />
-                <span>16:9 Twitch / YT</span>
+                <span>{ov.layout169}</span>
               </button>
               <button
                 type="button"
@@ -903,7 +1222,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5" />
-                <span>9:16 TikTok Live</span>
+                <span>{ov.layout916}</span>
               </button>
             </div>
 
@@ -913,14 +1232,22 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               className="px-3 py-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-[#00f0ff]/50 text-[#00f0ff] text-[11px] font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
               {copiedObsUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5" />}
-              <span>{copiedObsUrl ? 'URL OBS copiée' : copyError ? 'Copie bloquée' : 'Copier URL OBS'}</span>
+              <span>
+                {copiedObsUrl
+                  ? ov.obsUrlCopied
+                  : copyError
+                  ? isFr
+                    ? 'Copie bloquée'
+                    : 'Copy blocked'
+                  : ov.copyObsUrl}
+              </span>
             </button>
 
             <button
               type="button"
               onClick={toggleFullscreen}
               className="px-2.5 py-1.5 bg-[#1b0838] hover:bg-[#2a0c54] border border-white/15 text-slate-200 hover:text-white text-[11px] font-hud font-bold uppercase flex items-center gap-1 cursor-pointer whitespace-nowrap"
-              title="Plein écran (F11)"
+              title={isFr ? 'Plein écran (F11)' : 'Fullscreen (F11)'}
             >
               <Maximize2 className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">F11</span>
@@ -935,8 +1262,10 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               className="px-3.5 py-1.5 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] hover:brightness-110 text-white text-xs font-hud font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-[0_0_18px_rgba(255,42,133,0.4)] whitespace-nowrap"
             >
               <EyeOff className="w-3.5 h-3.5" />
-              <span>Capture Propre (H)</span>
+              <span>{ov.cleanModeBtn}</span>
             </button>
+
+            <LanguageSwitcher />
           </div>
         </div>
       </header>
@@ -949,7 +1278,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
             <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-white/10">
               <div className="flex items-center gap-2 text-xs font-mono-code text-slate-300">
                 <span className="font-hud font-bold text-white uppercase tracking-wider">
-                  Prévisualisation de Scène en Direct
+                  {isFr ? 'Prévisualisation de Scène en Direct' : 'Live Scene Preview'}
                 </span>
                 <span className="text-slate-500">·</span>
                 <span className="text-[#00f0ff]">
@@ -971,7 +1300,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Sunset Néon
+                  Sunset Neon
                 </button>
                 <button
                   type="button"
@@ -985,7 +1314,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Transparent OBS
+                  {ov.bgTransparent}
                 </button>
                 <button
                   type="button"
@@ -1000,7 +1329,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   }`}
                 >
                   <span className="w-2 h-2 bg-[#00ff00] border border-black/30 inline-block" />
-                  <span>Chroma Vert</span>
+                  <span>{ov.bgChroma}</span>
                 </button>
               </div>
             </div>
@@ -1022,7 +1351,15 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   className="px-3 py-1.5 bg-[#0b021a] hover:bg-[#1b0838] border border-[#00f0ff]/40 text-[#00f0ff] font-mono-code text-[11px] flex items-center gap-1.5 cursor-pointer"
                 >
                   {isTimerRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                  <span>{isTimerRunning ? 'Pause Chrono' : 'Démarrer Chrono'}</span>
+                  <span>
+                    {isTimerRunning
+                      ? isFr
+                        ? 'Pause Chrono'
+                        : 'Pause Timer'
+                      : isFr
+                      ? 'Démarrer Chrono'
+                      : 'Start Timer'}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -1033,7 +1370,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   className="px-2.5 py-1.5 bg-[#0b021a] hover:bg-[#1b0838] border border-white/10 text-slate-300 font-mono-code text-[11px] flex items-center gap-1 cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset</span>
+                  <span>{ov.timerReset}</span>
                 </button>
                 {bgMode === 'sunset' && (
                   <button
@@ -1048,13 +1385,13 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                         : 'bg-[#0b021a] border-white/10 text-slate-300 hover:text-white'
                     }`}
                   >
-                    Écran d&apos;attente
+                    {ov.bgWaiting}
                   </button>
                 )}
               </div>
 
               <div className="text-[11px] font-mono-code text-slate-400">
-                Préférences enregistrées automatiquement dans ce navigateur
+                {ov.cleanHint}
               </div>
             </div>
           </div>
@@ -1062,12 +1399,13 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
 
         {/* RIGHT DOCK: BROADCAST CONFIGURATION PANELS (4 cols on XL) */}
         <aside className="xl:col-span-4 jitalx-panel p-4 sm:p-5 space-y-4">
-          {/* Control Dock Tabs */}
-          <div className="grid grid-cols-3 gap-1 p-1 bg-[#0b021a] border border-white/10">
+          {/* Control Dock Tabs (4 tabs: Scene, Panels, Alerts/OBS, Connections) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-[#0b021a] border border-white/10">
             {[
-              { id: 'scene' as ControlTab, label: 'Scène & Cam', icon: Layout },
-              { id: 'panels' as ControlTab, label: 'Panneaux', icon: Sliders },
-              { id: 'alerts' as ControlTab, label: 'Alertes & OBS', icon: Bell },
+              { id: 'scene' as ControlTab, label: isFr ? 'Scène' : 'Scene', icon: Layout },
+              { id: 'panels' as ControlTab, label: isFr ? 'Widgets' : 'Widgets', icon: Sliders },
+              { id: 'alerts' as ControlTab, label: isFr ? 'OBS URL' : 'OBS URL', icon: Bell },
+              { id: 'connections' as ControlTab, label: isFr ? 'WS / OAuth' : 'WS / OAuth', icon: Plug },
             ].map((tab) => {
               const Icon = tab.icon;
               const active = controlTab === tab.id;
@@ -1079,7 +1417,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                     cyberAudio.playClick();
                     setControlTab(tab.id);
                   }}
-                  className={`py-2 px-2 text-[11px] font-hud font-bold uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                  className={`py-2 px-1.5 text-[10px] font-hud font-bold uppercase flex items-center justify-center gap-1 cursor-pointer transition-colors ${
                     active
                       ? 'bg-[#ff2a85]/25 text-[#00f0ff] border border-[#ff2a85]/60'
                       : 'text-slate-400 hover:text-white border border-transparent'
@@ -1101,7 +1439,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                     htmlFor="studio-streamer-name"
                     className="block text-[11px] font-mono-code text-[#00f0ff] uppercase mb-1"
                   >
-                    Pseudo Streamer
+                    {isFr ? 'Pseudo Streamer' : 'Streamer Handle'}
                   </label>
                   <input
                     id="studio-streamer-name"
@@ -1118,7 +1456,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                     htmlFor="studio-stream-title"
                     className="block text-[11px] font-mono-code text-[#ff7b00] uppercase mb-1"
                   >
-                    Titre du Live
+                    {isFr ? 'Titre du Live' : 'Stream Title'}
                   </label>
                   <input
                     id="studio-stream-title"
@@ -1135,14 +1473,14 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               <div className="pt-3 border-t border-white/10 space-y-2">
                 <div className="text-[11px] font-mono-code uppercase text-slate-300 flex items-center gap-1.5">
                   <Camera className="w-3.5 h-3.5 text-[#ff2a85]" />
-                  <span>Disposition de la Caméra</span>
+                  <span>{ov.camPosHeading}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'bottom-right' as CameraPosition, label: 'Bas à droite' },
-                    { id: 'top-right' as CameraPosition, label: 'Haut à droite' },
-                    { id: 'left' as CameraPosition, label: 'À gauche' },
-                    { id: 'hidden' as CameraPosition, label: 'Désactivée' },
+                    { id: 'bottom-right' as CameraPosition, label: isFr ? 'Bas à droite' : 'Bottom Right' },
+                    { id: 'top-right' as CameraPosition, label: isFr ? 'Haut à droite' : 'Top Right' },
+                    { id: 'left' as CameraPosition, label: isFr ? 'À gauche' : 'Left' },
+                    { id: 'hidden' as CameraPosition, label: isFr ? 'Désactivée' : 'Hidden' },
                   ].map((opt) => (
                     <button
                       key={opt.id}
@@ -1168,13 +1506,13 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               {prefs.cameraPos !== 'hidden' && (
                 <div className="space-y-2">
                   <div className="text-[11px] font-mono-code uppercase text-slate-300">
-                    Taille du cadre caméra
+                    {ov.camSizeHeading}
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { id: 'sm' as CameraSize, label: 'Compacte' },
-                      { id: 'md' as CameraSize, label: 'Standard' },
-                      { id: 'lg' as CameraSize, label: 'Grande' },
+                      { id: 'sm' as CameraSize, label: isFr ? 'Compacte' : 'Small' },
+                      { id: 'md' as CameraSize, label: isFr ? 'Standard' : 'Medium' },
+                      { id: 'lg' as CameraSize, label: isFr ? 'Grande' : 'Large' },
                     ].map((sz) => (
                       <button
                         key={sz.id}
@@ -1206,7 +1544,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   }}
                   className="w-full flex items-center justify-between px-3 py-2 bg-[#0b021a] border border-white/10 text-xs font-mono-code text-slate-200 hover:border-[#00f0ff]/40 cursor-pointer"
                 >
-                  <span>Masquer la signature JITALX • 10JITAL</span>
+                  <span>{ov.hideSigLabel}</span>
                   {hideSignature ? (
                     <CheckSquare className="w-4 h-4 text-[#00f0ff]" />
                   ) : (
@@ -1221,48 +1559,48 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
           {controlTab === 'panels' && (
             <div className="space-y-3">
               <div className="text-xs text-slate-400">
-                Activez ou masquez chaque panneau affiché sur votre scène live.
+                {ov.widgetsHeading}
               </div>
 
               <div className="space-y-2">
                 {[
                   {
-                    label: 'Objectifs de stream (Mission active)',
+                    label: isFr ? 'Mission active' : 'Active Mission',
                     active: showMissionWidget,
                     toggle: () => setShowMissionWidget((v) => !v),
                   },
                   {
-                    label: 'Compteur personnalisé (Défis / Essais)',
+                    label: ov.counterLabel,
                     active: showChallengeWidget,
                     toggle: () => setShowChallengeWidget((v) => !v),
                   },
                   {
-                    label: 'Zone Chat HUD',
+                    label: isFr ? 'Zone Chat HUD' : 'Chat HUD Box',
                     active: prefs.showChat,
                     toggle: () => updatePrefs({ showChat: !prefs.showChat }),
                   },
                   {
-                    label: 'Panneau Alertes visuelles',
+                    label: isFr ? 'Bannières d’alertes' : 'Visual Alert Banner',
                     active: prefs.showAlerts,
                     toggle: () => updatePrefs({ showAlerts: !prefs.showAlerts }),
                   },
                   {
-                    label: 'Chronomètre de session',
+                    label: isFr ? 'Chronomètre de session' : 'Session Timer',
                     active: prefs.showTimer,
                     toggle: () => updatePrefs({ showTimer: !prefs.showTimer }),
                   },
                   {
-                    label: 'Statistiques de session (Progression)',
+                    label: isFr ? 'Barre de progression' : 'Progress Stats Bar',
                     active: prefs.showStats,
                     toggle: () => updatePrefs({ showStats: !prefs.showStats }),
                   },
                   {
-                    label: 'Informations de jeu & Titre',
+                    label: isFr ? 'Infos jeu & titre' : 'Game Info & Title',
                     active: prefs.showGameInfo,
                     toggle: () => updatePrefs({ showGameInfo: !prefs.showGameInfo }),
                   },
                   {
-                    label: 'Widget personnalisé libre',
+                    label: isFr ? 'Widget texte personnalisé' : 'Custom Text Widget',
                     active: prefs.showCustomWidget,
                     toggle: () => updatePrefs({ showCustomWidget: !prefs.showCustomWidget }),
                   },
@@ -1294,7 +1632,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               {showChallengeWidget && (
                 <div className="pt-2 border-t border-white/10 space-y-2">
                   <label className="block text-[10px] font-mono-code uppercase text-[#ff7b00]">
-                    Intitulé du compteur
+                    {isFr ? 'Intitulé du compteur' : 'Counter Label'}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -1318,7 +1656,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               {prefs.showChat && (
                 <div className="pt-2 border-t border-white/10 space-y-1.5">
                   <label className="block text-[10px] font-mono-code uppercase text-[#00f0ff]">
-                    Message épinglé dans la Zone Chat
+                    {isFr ? 'Message épinglé dans la Zone Chat' : 'Pinned Chat Box Note'}
                   </label>
                   <input
                     type="text"
@@ -1334,14 +1672,14 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                 <div className="pt-2 border-t border-white/10 space-y-2">
                   <div className="text-[10px] font-mono-code uppercase text-[#ff7b00] flex items-center gap-1">
                     <FileText className="w-3 h-3" />
-                    <span>Contenu du Widget Personnalisé</span>
+                    <span>{isFr ? 'Contenu du Widget Personnalisé' : 'Custom Widget Content'}</span>
                   </div>
                   <input
                     type="text"
                     value={prefs.customWidgetTitle}
                     onChange={(e) => updatePrefs({ customWidgetTitle: e.target.value })}
                     maxLength={28}
-                    placeholder="Titre du widget"
+                    placeholder={isFr ? 'Titre du widget' : 'Widget title'}
                     className="w-full jitalx-input px-2.5 py-1.5 text-xs font-mono-code"
                   />
                   <textarea
@@ -1349,7 +1687,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                     value={prefs.customWidgetText}
                     onChange={(e) => updatePrefs({ customWidgetText: e.target.value })}
                     maxLength={120}
-                    placeholder="Message affiché à l'écran..."
+                    placeholder={isFr ? "Message affiché à l'écran..." : 'Message displayed on scene...'}
                     className="w-full jitalx-input px-2.5 py-1.5 text-xs"
                   />
                 </div>
@@ -1357,16 +1695,17 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
             </div>
           )}
 
-          {/* TAB 3: MANUAL ALERTS & OBS INTEGRATION GUIDE */}
+          {/* TAB 3: MANUAL ALERTS & OBS BROWSER SOURCE URL */}
           {controlTab === 'alerts' && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <div className="text-xs font-hud font-bold uppercase text-white">
-                  Déclencheur d&apos;alertes visuelles (Manuel)
+                  {isFr ? 'Déclencheur d’alertes visuelles (Manuel)' : 'Visual Alert Trigger (Manual)'}
                 </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Testez ou déclenchez manuellement une bannière d&apos;alerte sur la scène
-                  (aucune API Twitch/YouTube externe n&apos;est connectée automatiquement).
+                  {isFr
+                    ? 'Testez ou déclenchez manuellement une bannière d’alerte sur la scène.'
+                    : 'Preview or manually trigger an on-screen alert banner.'}
                 </p>
                 <div className="grid grid-cols-1 gap-2">
                   <button
@@ -1374,21 +1713,23 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                     onClick={() => triggerManualAlert('follower')}
                     className="px-3 py-2 bg-[#0b021a] hover:bg-[#1b0838] border border-[#00f0ff]/45 text-xs font-mono-code text-[#00f0ff] text-left cursor-pointer"
                   >
-                    Déclencher alerte : Nouveau Follower
+                    {isFr ? 'Déclencher : Nouveau Follower' : 'Trigger: New Follower'}
                   </button>
                   <button
                     type="button"
                     onClick={() => triggerManualAlert('sub')}
                     className="px-3 py-2 bg-[#0b021a] hover:bg-[#1b0838] border border-[#ff2a85]/50 text-xs font-mono-code text-[#ff2a85] text-left cursor-pointer"
                   >
-                    Déclencher alerte : Abonnement Live
+                    {isFr ? 'Déclencher : Abonnement Live' : 'Trigger: Live Subscription'}
                   </button>
                   <button
                     type="button"
                     onClick={() => triggerManualAlert('goal')}
                     className="px-3 py-2 bg-[#0b021a] hover:bg-[#1b0838] border border-[#ff7b00]/50 text-xs font-mono-code text-[#ff7b00] text-left cursor-pointer"
                   >
-                    Déclencher alerte : Palier {overallProgress}% atteint
+                    {isFr
+                      ? `Déclencher : Palier ${overallProgress}% atteint`
+                      : `Trigger: ${overallProgress}% Milestone`}
                   </button>
                 </div>
               </div>
@@ -1396,7 +1737,7 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
               <div className="pt-3 border-t border-white/10 space-y-2.5">
                 <div className="text-xs font-hud font-bold uppercase text-white flex items-center gap-1.5">
                   <Link2 className="w-3.5 h-3.5 text-[#00f0ff]" />
-                  <span>Intégration Source Navigateur OBS</span>
+                  <span>{isFr ? 'Source Navigateur OBS (Paramétrée)' : 'OBS Browser Source URL'}</span>
                 </div>
                 <div className="p-2.5 bg-[#0b021a] border border-white/10 text-[11px] font-mono-code text-slate-300 break-all select-text">
                   {obsUrl}
@@ -1406,17 +1747,264 @@ export const StreamerOverlay: React.FC<StreamerOverlayProps> = ({ onExit }) => {
                   onClick={copyObsBrowserSourceUrl}
                   className="w-full py-2 bg-[#00f0ff]/15 hover:bg-[#00f0ff]/25 border border-[#00f0ff]/60 text-[#00f0ff] text-xs font-hud font-bold uppercase cursor-pointer"
                 >
-                  {copiedObsUrl ? 'URL copiée dans le presse-papiers' : 'Copier l’URL pour OBS Studio'}
+                  {copiedObsUrl ? ov.obsUrlCopied : ov.copyObsUrl}
                 </button>
                 <div className="p-2.5 bg-[#0b021a]/80 border border-white/5 text-[11px] text-slate-400 flex items-start gap-2 leading-relaxed">
                   <Info className="w-3.5 h-3.5 text-[#00f0ff] shrink-0 mt-0.5" />
                   <span>
-                    Dans OBS Studio : Sources → <strong>+ Navigateur</strong> → collez cette URL
-                    (1920×1080 ou 1080×1920). Le contrôle direct via OBS WebSocket n&apos;est pas
-                    activé ; utilisez le mode Capture Propre (<kbd className="text-white">H</kbd>)
-                    ou l&apos;URL ci-dessus.
+                    {isFr
+                      ? 'Dans OBS Studio : Sources → + Navigateur → collez cette URL (1920×1080 ou 1080×1920). Le profil actif, le fond, la caméra et le mode capture sont encodés automatiquement.'
+                      : 'In OBS Studio: Sources → + Browser → paste this URL (1920×1080 or 1080×1920). Active game profile, background, webcam frame, and clean capture are encoded automatically.'}
                   </span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: REAL OPTIONAL LOCAL OBS WEBSOCKET v5 & TWITCH/YOUTUBE OAUTH */}
+          {controlTab === 'connections' && (
+            <div className="space-y-4">
+              {/* Local OBS WebSocket v5 */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-hud font-bold uppercase text-white flex items-center gap-1.5">
+                    <Wifi className="w-3.5 h-3.5 text-[#00f0ff]" />
+                    <span>{ov.obsWsHeading}</span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 text-[10px] font-mono-code uppercase border ${
+                      obsWsState === 'connected'
+                        ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
+                        : obsWsState === 'connecting'
+                        ? 'bg-amber-500/15 border-amber-500/50 text-amber-300'
+                        : obsWsState === 'error'
+                        ? 'bg-rose-500/15 border-rose-500/50 text-rose-300'
+                        : 'bg-white/5 border-white/15 text-slate-400'
+                    }`}
+                  >
+                    {obsWsState === 'connected'
+                      ? `${ov.obsWsConnected} v${obsWsVersion || '5'}`
+                      : obsWsState === 'connecting'
+                      ? isFr
+                        ? 'Connexion...'
+                        : 'Connecting...'
+                      : ov.obsWsDisconnected}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-400 leading-relaxed">{ov.obsWsDesc}</p>
+
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={obsWsUrl}
+                    onChange={(e) => setObsWsUrl(e.target.value)}
+                    disabled={obsWsState === 'connected' || obsWsState === 'connecting'}
+                    placeholder="ws://127.0.0.1:4455"
+                    className="w-full jitalx-input px-2.5 py-1.5 text-xs font-mono-code"
+                  />
+                  <input
+                    type="password"
+                    value={obsWsPassword}
+                    onChange={(e) => setObsWsPassword(e.target.value)}
+                    disabled={obsWsState === 'connected' || obsWsState === 'connecting'}
+                    placeholder={isFr ? 'Mot de passe OBS WebSocket (optionnel)' : 'OBS WebSocket password (optional)'}
+                    className="w-full jitalx-input px-2.5 py-1.5 text-xs font-mono-code"
+                  />
+                  <div className="flex gap-2">
+                    {obsWsState !== 'connected' ? (
+                      <button
+                        type="button"
+                        onClick={handleConnectObsWs}
+                        disabled={obsWsState === 'connecting'}
+                        className="flex-1 py-2 bg-[#00f0ff]/15 hover:bg-[#00f0ff]/25 border border-[#00f0ff]/60 text-[#00f0ff] text-xs font-hud font-bold uppercase cursor-pointer disabled:opacity-50"
+                      >
+                        {ov.obsWsConnect}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={refreshObsData}
+                          className="px-3 py-2 bg-[#0b021a] hover:bg-[#1b0838] border border-white/15 text-slate-200 text-xs font-mono-code flex items-center gap-1 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDisconnectObsWs}
+                          className="flex-1 py-2 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/50 text-rose-300 text-xs font-hud font-bold uppercase cursor-pointer"
+                        >
+                          {ov.obsWsDisconnect}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {obsWsError && (
+                  <div className="p-2.5 bg-rose-500/10 border border-rose-500/40 text-[11px] text-rose-200 flex items-start gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                    <span>{obsWsError}</span>
+                  </div>
+                )}
+
+                {obsWsState === 'connected' && (
+                  <div className="p-2.5 bg-[#0b021a] border border-emerald-500/30 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-mono-code">
+                      <span className="text-slate-400">{ov.obsWsScenes}:</span>
+                      <span className={obsStreamStatus?.outputActive ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                        {obsStreamStatus?.outputActive ? ov.obsWsLive : ov.obsWsOffline}
+                        {obsStreamStatus?.outputTimecode ? ` · ${obsStreamStatus.outputTimecode}` : ''}
+                      </span>
+                    </div>
+                    {obsScenes.length === 0 ? (
+                      <div className="text-[11px] text-slate-500">
+                        {isFr ? 'Aucune scène détectée dans OBS.' : 'No scenes returned by OBS.'}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-1.5 max-h-36 overflow-y-auto">
+                        {obsScenes.map((scene) => (
+                          <button
+                            key={scene.sceneName}
+                            type="button"
+                            onClick={() => handleSwitchObsScene(scene.sceneName)}
+                            className={`px-2.5 py-1.5 text-left text-xs font-mono-code border cursor-pointer transition-colors ${
+                              obsCurrentScene === scene.sceneName
+                                ? 'bg-[#00f0ff]/20 border-[#00f0ff] text-[#00f0ff] font-bold'
+                                : 'bg-[#120428] border-white/10 text-slate-300 hover:border-white/30'
+                            }`}
+                          >
+                            {scene.sceneName}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Twitch & YouTube OAuth */}
+              <div className="pt-3 border-t border-white/10 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-hud font-bold uppercase text-white flex items-center gap-1.5">
+                    <Plug className="w-3.5 h-3.5 text-[#ff2a85]" />
+                    <span>{ov.integrationsHeading}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void fetchIntegrationsStatus()}
+                    disabled={integrationsLoading}
+                    className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                    title={isFr ? 'Actualiser le statut serveur' : 'Refresh server status'}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${integrationsLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-slate-400 leading-relaxed">{ov.integrationsDesc}</p>
+
+                {integrationsMessage && (
+                  <div
+                    className={`p-2 text-[11px] border ${
+                      integrationsMessage.type === 'ok'
+                        ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
+                        : 'bg-rose-500/10 border-rose-500/40 text-rose-200'
+                    }`}
+                  >
+                    {integrationsMessage.text}
+                  </div>
+                )}
+
+                {oauthFallbackUrl && (
+                  <a
+                    href={oauthFallbackUrl.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2 px-3 bg-[#ff2a85]/20 border border-[#ff2a85] text-white text-xs font-mono-code flex items-center justify-center gap-1.5"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>
+                      {isFr
+                        ? `Ouvrir l’autorisation ${oauthFallbackUrl.provider}`
+                        : `Open ${oauthFallbackUrl.provider} authorization`}
+                    </span>
+                  </a>
+                )}
+
+                {/* Twitch Card */}
+                <div className="p-2.5 bg-[#0b021a] border border-white/10 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-hud font-bold text-white uppercase">Twitch</span>
+                    <span className="text-[10px] font-mono-code text-slate-400">
+                      {integrationsStatus?.connections.twitch.connected
+                        ? integrationsStatus.connections.twitch.channelTitle || integrationsStatus.connections.twitch.handle
+                        : integrationsStatus?.twitchConfigured
+                        ? isFr
+                          ? 'Prêt (OAuth serveur actif)'
+                          : 'Ready (Server OAuth active)'
+                        : ov.notConfigured}
+                    </span>
+                  </div>
+                  {integrationsStatus?.connections.twitch.connected ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleDisconnectOAuth('twitch')}
+                      className="w-full py-1.5 bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[11px] font-mono-code uppercase cursor-pointer"
+                    >
+                      {ov.disconnect}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!integrationsStatus?.twitchConfigured}
+                      onClick={() => void handleStartOAuth('twitch')}
+                      className="w-full py-1.5 bg-[#9146FF]/20 hover:bg-[#9146FF]/35 border border-[#9146FF]/60 text-purple-200 text-[11px] font-mono-code uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {ov.twitchConnect}
+                    </button>
+                  )}
+                </div>
+
+                {/* YouTube Card */}
+                <div className="p-2.5 bg-[#0b021a] border border-white/10 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-hud font-bold text-white uppercase">YouTube</span>
+                    <span className="text-[10px] font-mono-code text-slate-400">
+                      {integrationsStatus?.connections.youtube.connected
+                        ? integrationsStatus.connections.youtube.channelTitle || integrationsStatus.connections.youtube.handle
+                        : integrationsStatus?.youtubeConfigured
+                        ? isFr
+                          ? 'Prêt (OAuth serveur actif)'
+                          : 'Ready (Server OAuth active)'
+                        : ov.notConfigured}
+                    </span>
+                  </div>
+                  {integrationsStatus?.connections.youtube.connected ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleDisconnectOAuth('youtube')}
+                      className="w-full py-1.5 bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[11px] font-mono-code uppercase cursor-pointer"
+                    >
+                      {ov.disconnect}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!integrationsStatus?.youtubeConfigured}
+                      onClick={() => void handleStartOAuth('youtube')}
+                      className="w-full py-1.5 bg-red-500/20 hover:bg-red-500/35 border border-red-500/60 text-red-200 text-[11px] font-mono-code uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {ov.youtubeConnect}
+                    </button>
+                  )}
+                </div>
+
+                {!user && (
+                  <div className="text-[10px] font-mono-code text-amber-300/90">
+                    {ov.signInRequired}
+                  </div>
+                )}
               </div>
             </div>
           )}

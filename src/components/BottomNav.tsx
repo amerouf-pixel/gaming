@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
+import { useLocale } from '../context/LocaleContext';
 import { cyberAudio } from '../utils/cyberAudio';
 import { TabType } from '../types';
 import {
@@ -20,6 +21,9 @@ interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
   const { currentTab, setCurrentTab, stats, activeTheme } = useGame();
+  const { locale, appCopy } = useLocale();
+  const t = appCopy.nav;
+
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const isSunsetNeon = activeTheme === 'sunset-neon';
 
@@ -32,14 +36,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
     icon: React.ComponentType<{ className?: string }>;
     badge?: number;
   }[] = [
-    { id: 'home', label: 'Accueil', icon: LayoutDashboard },
+    { id: 'home', label: t.home, icon: LayoutDashboard },
     {
       id: 'progression',
-      label: 'Progression',
+      label: t.progression,
       icon: Compass,
       badge: progressionRemaining,
     },
-    { id: 'garage', label: 'Garage', icon: Car },
+    { id: 'garage', label: t.garage, icon: Car },
   ];
 
   const secondaryTabs: {
@@ -47,9 +51,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
     label: string;
     icon: React.ComponentType<{ className?: string }>;
   }[] = [
-    { id: 'map', label: 'Carte', icon: Map },
-    { id: 'notes', label: 'Notes', icon: FileText },
-    { id: 'stats', label: 'Stats & JSON', icon: BarChart3 },
+    { id: 'map', label: t.map, icon: Map },
+    { id: 'notes', label: t.notes, icon: FileText },
+    { id: 'stats', label: t.stats, icon: BarChart3 },
   ];
 
   const isSecondaryActive =
@@ -57,7 +61,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
 
   return (
     <>
-      {/* Desktop / Tablet Navigation Bar: 4 Main Spaces + Compact Secondary Tools */}
       <nav
         className={`hidden md:block sticky top-16 z-30 transition-colors duration-300 ${
           isSunsetNeon
@@ -67,7 +70,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4 py-2">
-            {/* 4 Primary Spaces */}
             <div className="flex items-center gap-2 overflow-x-auto">
               {primaryTabs.map((item) => {
                 const Icon = item.icon;
@@ -107,7 +109,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
                 );
               })}
 
-              {/* 4th Primary Space: Streamer Studio */}
               {onOpenStreamer && (
                 <button
                   type="button"
@@ -122,12 +123,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
                   }`}
                 >
                   <Video className="w-4 h-4 text-[#ff2a85]" />
-                  <span>Streamer Studio</span>
+                  <span>{t.studioObs}</span>
                 </button>
               )}
             </div>
 
-            {/* Compact Secondary Utilities: Carte, Notes & Stats/Backup */}
             <div className="flex items-center gap-1.5 pl-3 border-l border-white/10 shrink-0">
               {secondaryTabs.map((item) => {
                 const Icon = item.icon;
@@ -158,16 +158,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
         </div>
       </nav>
 
-      {/* Mobile Secondary Drawer (Carte / Notes / Stats) */}
+      {/* Mobile Secondary Drawer */}
       {mobileToolsOpen && (
         <div className="md:hidden fixed bottom-16 right-3 z-50 bg-[#170632] border border-[#ff2a85]/50 shadow-2xl p-2 space-y-1 min-w-[185px]">
           <div className="flex items-center justify-between px-2 py-1 text-[10px] font-mono-code uppercase text-slate-400">
-            <span>Outils secondaires</span>
+            <span>{locale === 'fr' ? 'Outils secondaires' : 'More Tools'}</span>
             <button
               type="button"
               onClick={() => setMobileToolsOpen(false)}
               className="text-slate-400 hover:text-white cursor-pointer"
-              aria-label="Fermer"
+              aria-label={appCopy.common.close}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -198,7 +198,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
         </div>
       )}
 
-      {/* Mobile Bottom Navigation: 4 Main Spaces + Outils */}
+      {/* Mobile Bottom Navigation */}
       <nav
         className={`md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-lg px-2 py-1.5 safe-area-pb ${
           isSunsetNeon
@@ -255,7 +255,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
             >
               <Video className="w-5 h-5" />
               <span className="text-[10px] mt-1 font-hud font-bold tracking-tight leading-none">
-                Studio
+                OBS
               </span>
             </button>
           )}
@@ -273,7 +273,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenStreamer }) => {
             }`}
           >
             <MoreHorizontal className="w-5 h-5" />
-            <span className="text-[10px] mt-1 font-hud tracking-tight leading-none">Outils</span>
+            <span className="text-[10px] mt-1 font-hud tracking-tight leading-none">
+              {locale === 'fr' ? 'Outils' : 'More'}
+            </span>
           </button>
         </div>
       </nav>

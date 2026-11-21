@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { AppRoute, SubscriptionTier } from '../types';
+import React, { useState, useEffect } from 'react';
+import { AppRoute, PaymentBackendStatus, SubscriptionTier } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useLocale, LanguageSwitcher } from '../context/LocaleContext';
 import {
-  GUMROAD_PRODUCT_URL,
+  buildGumroadCheckoutUrl,
+  fetchPaymentBackendStatus,
   SUBSCRIPTION_PLANS,
-  isStripeConfigured,
   isStripePlanReady,
   prepareStripeCheckoutSession,
 } from '../services/stripeConfig';
@@ -26,12 +26,25 @@ interface PricingPageProps {
 }
 
 export const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
-  const { user, account, signInWithGoogle } = useAuth();
+  const { user, account, signInWithGoogle, getIdToken } = useAuth();
   const { locale, copy } = useLocale();
   const t = copy.pricing;
   const [stripeNotice, setStripeNotice] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] = useState<PaymentBackendStatus | null>(null);
+  const [busyPlan, setBusyPlan] = useState<SubscriptionTier | null>(null);
 
-  const stripeReady = isStripeConfigured();
+  useEffect(() => {
+    let active = true;
+    void fetchPaymentBackendStatus().then((status) => {
+      if (active) setBackendStatus(status);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const stripeReady = Boolean(backendStatus?.stripeCheckoutConfigured);
+  const gumroadHref = buildGumroadCheckoutUrl({ email: user?.email, uid: user?.uid });
 
   const handleSelectPlan = async (planId: SubscriptionTier) => {
     cyberAudio.playChirp();
@@ -42,24 +55,38 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
       return;
     }
 
+    if (planId !== 'pro_monthly' && planId !== 'creator') return;
+
     const plan = SUBSCRIPTION_PLANS.find((p) => p.id === planId);
     if (!plan) return;
-
     const localizedPlan = copy.plans[planId];
 
-    if (isStripePlanReady(planId)) {
+    if (isStripePlanReady(planId, backendStatus)) {
+      setBusyPlan(planId);
       if (!user) {
         const signedIn = await signInWithGoogle();
-        if (!signedIn) return;
+        if (!signedIn) {
+          setBusyPlan(null);
+          return;
+        }
+      }
+      const token = await getIdToken();
+      if (!token) {
+        setBusyPlan(null);
+        setStripeNotice(
+          locale === 'fr'
+            ? 'Veuillez vous connecter avec Google avant de démarrer un abonnement Stripe.'
+            : 'Please sign in with Google before starting a Stripe subscription.'
+        );
+        return;
       }
       const res = await prepareStripeCheckoutSession({
         planId,
-        priceId: plan.stripePriceId,
-        userId: user?.uid || '',
-        userEmail: user?.email || '',
+        firebaseIdToken: token,
         successUrl: `${window.location.origin}/account?billing=success`,
         cancelUrl: `${window.location.origin}/pricing?billing=cancel`,
       });
+      setBusyPlan(null);
       if (res.ok && res.url) {
         window.location.href = res.url;
         return;
@@ -70,8 +97,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
 
     setStripeNotice(
       locale === 'fr'
-        ? `La formule mensuelle "${localizedPlan.name}" n'est pas encore activée (requiert un backend Stripe et ${plan.stripePriceEnvKey}). Pour acheter dès maintenant, utilisez l'offre de lancement officielle à 7 € sur Gumroad.`
-        : `The monthly "${localizedPlan.name}" tier is not active yet (requires a server-side Stripe backend and ${plan.stripePriceEnvKey}). To purchase today, use the official €7.00 Full Access launch offer on Gumroad.`
+        ? `La formule mensuelle "${localizedPlan.name}" attend la configuration des clés serveur Stripe (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ${plan.stripePriceEnvKey}). Pour acheter dès maintenant, utilisez l'offre officielle à 7 € sur Gumroad.`
+        : `The monthly "${localizedPlan.name}" tier awaits server Stripe configuration (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ${plan.stripePriceEnvKey}). To purchase today, use the official €7.00 Full Access launch offer on Gumroad.`
     );
   };
 
@@ -136,7 +163,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
             const localized = copy.plans[plan.id];
             const isCurrent = account?.subscriptionTier === plan.id;
             const isGumroadLifetime = plan.id === 'lifetime';
-            const planStripeReady = isStripePlanReady(plan.id);
+            const planStripeReady = isStripePlanReady(plan.id, backendStatus);
 
             return (
               <div
@@ -180,7 +207,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
                 <div className="pt-6 mt-6 border-t border-white/[0.08] space-y-2.5">
                   {isGumroadLifetime && !isCurrent ? (
                     <a
-                      href={GUMROAD_PRODUCT_URL}
+                      href={gumroadHref}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => cyberAudio.playChirp()}
@@ -193,7 +220,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
                     <button
                       type="button"
                       onClick={() => void handleSelectPlan(plan.id)}
-                      disabled={isCurrent}
+                      disabled={isCurrent || busyPlan === plan.id}
                       className={`w-full py-3 px-4 rounded-lg font-semibold text-xs tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-default ${
                         plan.id === 'free'
                           ? 'bg-white text-[#0a0910] hover:bg-[#00f0ff]'
@@ -201,7 +228,9 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onNavigate }) => {
                       }`}
                     >
                       <span>
-                        {isCurrent
+                        {busyPlan === plan.id
+                          ? '...'
+                          : isCurrent
                           ? t.currentPlanCta
                           : plan.id === 'free'
                           ? t.startFreeCta

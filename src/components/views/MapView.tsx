@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
+import { useLocale } from '../../context/LocaleContext';
 import { MapMarkerCategory } from '../../types';
 import { cyberAudio } from '../../utils/cyberAudio';
 import { isValidImageUrl } from '../../utils/vehicleVisuals';
@@ -94,6 +95,9 @@ export const MapView: React.FC = () => {
     activeProfile,
   } = useGame();
 
+  const { locale, appCopy } = useLocale();
+  const t = appCopy.map;
+
   // Zoom & Pan state
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -126,19 +130,32 @@ export const MapView: React.FC = () => {
   const [mapOpacity, setMapOpacity] = useState(85);
   const [mapUploadError, setMapUploadError] = useState<string | null>(null);
 
+  // Sync custom map input when switching game profiles
+  useEffect(() => {
+    setMapUrlInput(customMapUrl);
+    setSelectedPinId(null);
+    setPendingPoint(null);
+  }, [customMapUrl, activeProfile.id]);
+
   // Build unified pins from real data + user custom markers
   const allPins = useMemo<UnifiedPin[]>(() => {
     const list: UnifiedPin[] = [];
 
     missions.forEach((m) => {
       const pos = deterministicPosition(m.id, m.district);
+      const statusText =
+        m.status === 'completed'
+          ? appCopy.missions.statusCompleted
+          : m.status === 'in_progress'
+          ? appCopy.missions.statusInProgress
+          : appCopy.missions.statusAvailable;
       list.push({
         id: `pin_m_${m.id}`,
         sourceId: m.id,
         sourceType: 'mission',
         category: 'mission',
         title: m.title,
-        subtitle: `${m.status === 'completed' ? 'Terminée' : m.status === 'in_progress' ? 'En cours' : 'Disponible'} · +${m.rewardCredits} Cr`,
+        subtitle: `${statusText} · +${m.rewardCredits} Cr`,
         district: m.district,
         x: pos.x,
         y: pos.y,
@@ -170,7 +187,7 @@ export const MapView: React.FC = () => {
         sourceType: 'vehicle',
         category: 'vehicle',
         title: v.name,
-        subtitle: `${v.unlocked ? 'Possédé' : 'À débloquer'} · ${v.location}`,
+        subtitle: `${v.unlocked ? appCopy.common.unlocked : appCopy.common.locked} · ${v.location}`,
         district: v.location,
         x: pos.x,
         y: pos.y,
@@ -201,15 +218,15 @@ export const MapView: React.FC = () => {
         sourceType: 'custom',
         category: mk.category,
         title: mk.title,
-        subtitle: mk.description || 'Repère personnalisé',
-        district: mk.district || 'Repère libre',
+        subtitle: mk.description || (locale === 'fr' ? 'Repère personnalisé' : 'Custom pin'),
+        district: mk.district || (locale === 'fr' ? 'Repère libre' : 'Custom zone'),
         x: mk.x,
         y: mk.y,
       });
     });
 
     return list;
-  }, [missions, collectibles, vehicles, objectives, mapMarkers]);
+  }, [missions, collectibles, vehicles, objectives, mapMarkers, appCopy, locale]);
 
   const visiblePins = useMemo(
     () => allPins.filter((p) => filters[p.category]),
@@ -288,11 +305,15 @@ export const MapView: React.FC = () => {
     setMapUploadError(null);
     const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
     if (!allowedTypes.includes(file.type)) {
-      setMapUploadError('Sélectionnez un fichier image raster (PNG, JPG, WebP, GIF ou AVIF).');
+      setMapUploadError(t.invalidMapUrl);
       return;
     }
     if (file.size > 3 * 1024 * 1024) {
-      setMapUploadError('Image trop lourde (> 3 Mo). Compressez-la ou utilisez une URL directe.');
+      setMapUploadError(
+        locale === 'fr'
+          ? 'Image trop lourde (> 3 Mo). Compressez-la ou utilisez une URL directe.'
+          : 'Image exceeds 3 MB limit. Compress it or use a direct HTTPS URL.'
+      );
       return;
     }
     const reader = new FileReader();
@@ -302,7 +323,10 @@ export const MapView: React.FC = () => {
         setMapUrlInput(reader.result);
       }
     };
-    reader.onerror = () => setMapUploadError('Impossible de lire le fichier image.');
+    reader.onerror = () =>
+      setMapUploadError(
+        locale === 'fr' ? 'Impossible de lire le fichier image.' : 'Unable to read image file.'
+      );
     reader.readAsDataURL(file);
     e.target.value = '';
   };
@@ -344,31 +368,31 @@ export const MapView: React.FC = () => {
   const filterMeta: { id: MapMarkerCategory; label: string; color: string; count: number }[] = [
     {
       id: 'mission',
-      label: 'Missions',
+      label: t.catMission,
       color: 'text-[#ff2a85]',
       count: allPins.filter((p) => p.category === 'mission').length,
     },
     {
       id: 'collectible',
-      label: 'Collectibles',
+      label: t.catCollectible,
       color: 'text-amber-400',
       count: allPins.filter((p) => p.category === 'collectible').length,
     },
     {
       id: 'vehicle',
-      label: 'Véhicules',
+      label: t.catVehicle,
       color: 'text-emerald-400',
       count: allPins.filter((p) => p.category === 'vehicle').length,
     },
     {
       id: 'objective',
-      label: 'Objectifs',
+      label: t.catObjective,
       color: 'text-purple-400',
       count: allPins.filter((p) => p.category === 'objective').length,
     },
     {
       id: 'poi',
-      label: 'Points d’intérêt',
+      label: t.catPoi,
       color: 'text-[#00f0ff]',
       count: allPins.filter((p) => p.category === 'poi').length,
     },
@@ -382,12 +406,14 @@ export const MapView: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Map className="w-6 h-6 text-[#00f0ff]" />
             <h1 className="text-2xl font-bold font-hud text-white uppercase tracking-wide">
-              Carte Tactique Interactive
+              {t.title}
             </h1>
           </div>
           <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-            Vue cartographique grand format (distincte du radar 360°) · Univers :{' '}
-            <span className="text-[#00f0ff] font-medium">{activeProfile.universe}</span>
+            {t.subtitle} ·{' '}
+            <span className="text-[#00f0ff] font-medium">
+              {activeProfile.name} ({activeProfile.universe})
+            </span>
           </p>
         </div>
 
@@ -406,7 +432,7 @@ export const MapView: React.FC = () => {
             }`}
           >
             {placementMode ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            <span>{placementMode ? 'Annuler placement' : 'Placer un repère'}</span>
+            <span>{placementMode ? appCopy.common.cancel : t.addMarkerTitle}</span>
           </button>
 
           <button
@@ -415,20 +441,15 @@ export const MapView: React.FC = () => {
             className="px-3.5 py-2 jitalx-panel text-xs font-hud font-bold uppercase text-slate-200 hover:text-[#00f0ff] flex items-center gap-1.5 cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5 text-[#ff7b00]" />
-            <span>Fond de carte personnalisé</span>
+            <span>{t.uploadCustomMap}</span>
           </button>
         </div>
       </div>
 
-      {/* Honest Transparency Notice */}
+      {/* Multi-Game Neutral Notice */}
       <div className="p-3 jitalx-panel-deep text-xs text-slate-300 flex items-start gap-2.5">
         <Info className="w-4 h-4 text-[#00f0ff] shrink-0 mt-0.5" />
-        <span>
-          Cette surface cartographique affiche une <strong>grille tactique personnalisable</strong>{' '}
-          reliée à vos données JITALX. Elle n&apos;inclut aucune carte officielle Rockstar Games /
-          GTA VI : importez votre propre fond de carte autorisé (image locale ou URL) via « Fond de
-          carte personnalisé ».
-        </span>
+        <span>{t.multiGameMapNote}</span>
       </div>
 
       {/* Custom Map Source Loader */}
@@ -436,13 +457,13 @@ export const MapView: React.FC = () => {
         <div className="jitalx-panel p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-hud font-bold text-sm text-white uppercase">
-              Source Cartographique Utilisateur
+              {t.uploadCustomMap} ({activeProfile.name})
             </h2>
             <button
               type="button"
               onClick={() => setShowMapSourcePanel(false)}
               className="text-slate-400 hover:text-white cursor-pointer"
-              aria-label="Fermer"
+              aria-label={appCopy.common.close}
             >
               <X className="w-4 h-4" />
             </button>
@@ -451,14 +472,14 @@ export const MapView: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="md:col-span-7">
               <label className="block text-[11px] font-mono-code text-slate-300 mb-1">
-                URL d&apos;une image de carte autorisée (https://...)
+                {t.mapUrlPlaceholder}
               </label>
               <div className="flex gap-2">
                 <input
                   type="url"
                   value={mapUrlInput}
                   onChange={(e) => setMapUrlInput(e.target.value)}
-                  placeholder="https://exemple.com/ma-carte-tactique.png"
+                  placeholder="https://example.com/game-map.png"
                   className="flex-1 jitalx-input px-3 py-2 text-xs font-mono-code"
                 />
                 <button
@@ -471,7 +492,7 @@ export const MapView: React.FC = () => {
                       return;
                     }
                     if (!isValidImageUrl(trimmed)) {
-                      setMapUploadError('URL invalide : utilisez une URL https:// ou une image raster locale.');
+                      setMapUploadError(t.invalidMapUrl);
                       return;
                     }
                     setMapUploadError(null);
@@ -480,7 +501,7 @@ export const MapView: React.FC = () => {
                   className="px-3 py-2 bg-[#00f0ff] text-[#120428] text-xs font-hud font-bold uppercase cursor-pointer flex items-center gap-1"
                 >
                   <Link2 className="w-3.5 h-3.5" />
-                  <span>Appliquer</span>
+                  <span>{t.applyMapUrl}</span>
                 </button>
               </div>
             </div>
@@ -488,7 +509,7 @@ export const MapView: React.FC = () => {
             <div className="md:col-span-3">
               <label className="w-full py-2 px-3 bg-[#0b021a] hover:bg-[#1b0838] border border-[#ff2a85]/45 text-xs font-mono-code text-slate-200 flex items-center justify-center gap-1.5 cursor-pointer">
                 <Upload className="w-3.5 h-3.5 text-[#ff7b00]" />
-                <span>Importer image locale</span>
+                <span>{t.uploadCustomMap}</span>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
@@ -508,7 +529,7 @@ export const MapView: React.FC = () => {
                   }}
                   className="w-full py-2 px-3 bg-rose-950/40 border border-rose-500/40 text-xs font-mono-code text-rose-300 hover:bg-rose-900/40 cursor-pointer"
                 >
-                  Retirer fond
+                  {t.resetMapLayer}
                 </button>
               )}
             </div>
@@ -516,7 +537,7 @@ export const MapView: React.FC = () => {
 
           {customMapUrl && (
             <div className="flex items-center gap-3 text-xs font-mono-code text-slate-300">
-              <span>Opacité du fond :</span>
+              <span>{locale === 'fr' ? 'Opacité du fond :' : 'Map opacity:'}</span>
               <input
                 type="range"
                 min={25}
@@ -600,7 +621,7 @@ export const MapView: React.FC = () => {
           {placementMode && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 px-4 py-2 bg-[#ff2a85] text-white text-xs font-hud font-bold uppercase tracking-wider shadow-lg flex items-center gap-2">
               <Crosshair className="w-4 h-4" />
-              <span>Cliquez sur la carte pour placer votre repère</span>
+              <span>{t.clickToPlaceHint}</span>
             </div>
           )}
 
@@ -750,7 +771,7 @@ export const MapView: React.FC = () => {
 
             {/* Map Coordinates Footer Overlay */}
             <div className="absolute bottom-3 left-3 z-20 px-2.5 py-1 bg-[#120428]/90 border border-white/15 text-[10px] font-mono-code text-slate-300 tabular-nums pointer-events-none">
-              {visiblePins.length} marqueurs affichés · Glisser pour déplacer · Zoom {Math.round(zoom * 100)}%
+              {visiblePins.length} {locale === 'fr' ? 'repères affichés · Glisser pour déplacer' : 'pins visible · Drag to pan'} · Zoom {Math.round(zoom * 100)}%
             </div>
           </div>
         </div>
@@ -762,7 +783,7 @@ export const MapView: React.FC = () => {
             <form onSubmit={handleSaveNewMarker} className="jitalx-panel p-4 space-y-3 border-[#ff2a85]/60">
               <div className="flex items-center justify-between">
                 <span className="font-hud font-bold text-xs uppercase text-[#00f0ff]">
-                  Nouveau repère ({pendingPoint.x}%, {pendingPoint.y}%)
+                  {t.addMarkerTitle} ({pendingPoint.x}%, {pendingPoint.y}%)
                 </span>
                 <button
                   type="button"
@@ -775,7 +796,7 @@ export const MapView: React.FC = () => {
               <input
                 type="text"
                 required
-                placeholder="Nom du lieu ou repère *"
+                placeholder={t.markerNamePlaceholder}
                 value={newMarkerTitle}
                 onChange={(e) => setNewMarkerTitle(e.target.value)}
                 className="w-full jitalx-input px-2.5 py-1.5 text-xs"
@@ -785,22 +806,22 @@ export const MapView: React.FC = () => {
                 onChange={(e) => setNewMarkerCategory(e.target.value as MapMarkerCategory)}
                 className="w-full jitalx-input px-2.5 py-1.5 text-xs"
               >
-                <option value="poi">Point d’intérêt</option>
-                <option value="mission">Mission</option>
-                <option value="collectible">Collectible</option>
-                <option value="vehicle">Véhicule</option>
-                <option value="objective">Objectif</option>
+                <option value="poi">{t.catPoi}</option>
+                <option value="mission">{t.catMission}</option>
+                <option value="collectible">{t.catCollectible}</option>
+                <option value="vehicle">{t.catVehicle}</option>
+                <option value="objective">{t.catObjective}</option>
               </select>
               <input
                 type="text"
-                placeholder="Quartier / Zone (optionnel)"
+                placeholder={t.markerDistrictPlaceholder}
                 value={newMarkerDistrict}
                 onChange={(e) => setNewMarkerDistrict(e.target.value)}
                 className="w-full jitalx-input px-2.5 py-1.5 text-xs"
               />
               <textarea
                 rows={2}
-                placeholder="Notes tactiques..."
+                placeholder={t.markerDescPlaceholder}
                 value={newMarkerDesc}
                 onChange={(e) => setNewMarkerDesc(e.target.value)}
                 className="w-full jitalx-input px-2.5 py-1.5 text-xs"
@@ -809,7 +830,7 @@ export const MapView: React.FC = () => {
                 type="submit"
                 className="w-full py-2 bg-gradient-to-r from-[#ff2a85] to-[#ff7b00] text-white text-xs font-hud font-bold uppercase cursor-pointer"
               >
-                Enregistrer sur la carte
+                {t.placeMarkerBtn}
               </button>
             </form>
           )}
@@ -817,7 +838,7 @@ export const MapView: React.FC = () => {
           {/* Selected Marker Inspector */}
           <div className="jitalx-panel p-4 space-y-3">
             <div className="text-xs font-hud font-bold uppercase text-slate-300 border-b border-white/10 pb-2">
-              Détails du marqueur
+              {locale === 'fr' ? 'Détails du marqueur' : 'Marker Inspector'}
             </div>
 
             {selectedPin ? (
@@ -846,7 +867,7 @@ export const MapView: React.FC = () => {
                 </p>
 
                 <div className="text-[10px] font-mono-code text-slate-400 tabular-nums">
-                  Position grille : X {selectedPin.x.toFixed(1)}% · Y {selectedPin.y.toFixed(1)}%
+                  {locale === 'fr' ? 'Position grille' : 'Grid position'}: X {selectedPin.x.toFixed(1)}% · Y {selectedPin.y.toFixed(1)}%
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -860,7 +881,15 @@ export const MapView: React.FC = () => {
                       className="flex-1 py-1.5 px-2.5 bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs font-hud font-bold uppercase flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{selectedPin.completed ? 'Décocher' : 'Collecter'}</span>
+                      <span>
+                        {selectedPin.completed
+                          ? locale === 'fr'
+                            ? 'Décocher'
+                            : 'Uncheck'
+                          : locale === 'fr'
+                          ? 'Collecter'
+                          : 'Collect'}
+                      </span>
                     </button>
                   )}
 
@@ -870,7 +899,7 @@ export const MapView: React.FC = () => {
                       onClick={() => openProgressionTab('missions')}
                       className="flex-1 py-1.5 px-2.5 bg-[#00f0ff]/15 border border-[#00f0ff]/50 text-[#00f0ff] text-xs font-hud font-bold uppercase cursor-pointer"
                     >
-                      Ouvrir Missions
+                      {appCopy.home.openMissions}
                     </button>
                   )}
 
@@ -880,7 +909,7 @@ export const MapView: React.FC = () => {
                       onClick={() => setCurrentTab('garage')}
                       className="flex-1 py-1.5 px-2.5 bg-emerald-500/15 border border-emerald-400/50 text-emerald-300 text-xs font-hud font-bold uppercase cursor-pointer"
                     >
-                      Ouvrir Garage
+                      {appCopy.nav.garage}
                     </button>
                   )}
 
@@ -890,7 +919,7 @@ export const MapView: React.FC = () => {
                       onClick={() => openProgressionTab('objectives')}
                       className="flex-1 py-1.5 px-2.5 bg-purple-500/15 border border-purple-400/50 text-purple-300 text-xs font-hud font-bold uppercase cursor-pointer"
                     >
-                      Voir Trophées
+                      {appCopy.progression.tabObjectives}
                     </button>
                   )}
 
@@ -904,15 +933,16 @@ export const MapView: React.FC = () => {
                       className="flex-1 py-1.5 px-2.5 bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs font-hud font-bold uppercase flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Supprimer</span>
+                      <span>{appCopy.common.delete}</span>
                     </button>
                   )}
                 </div>
               </div>
             ) : (
               <p className="text-xs text-slate-400 leading-relaxed">
-                Cliquez sur un marqueur de la carte pour afficher ses informations ou activez « Placer
-                un repère » pour ajouter vos propres emplacements.
+                {locale === 'fr'
+                  ? 'Cliquez sur un marqueur de la carte pour afficher ses détails ou activez « Placer un repère » pour ajouter vos emplacements.'
+                  : 'Click any map marker to inspect details or enable "Place New Marker" to pin your own coordinates.'}
               </p>
             )}
           </div>
@@ -920,28 +950,28 @@ export const MapView: React.FC = () => {
           {/* Legend */}
           <div className="jitalx-panel p-4 space-y-2">
             <div className="text-xs font-hud font-bold uppercase text-slate-300 border-b border-white/10 pb-2">
-              Légende
+              {locale === 'fr' ? 'Légende' : 'Legend'}
             </div>
             <div className="space-y-1.5 text-xs text-slate-300">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-[#ff2a85] border border-white inline-block" />
-                <span>Missions actives / disponibles</span>
+                <span>{t.catMission}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-amber-400 border border-amber-100 inline-block" />
-                <span>Collectibles à trouver</span>
+                <span>{t.catCollectible}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-emerald-400 border border-emerald-100 inline-block" />
-                <span>Véhicules &amp; éléments validés</span>
+                <span>{t.catVehicle}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-purple-500 border border-purple-200 inline-block" />
-                <span>Objectifs &amp; Trophées</span>
+                <span>{t.catObjective}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-[#00f0ff] border border-white inline-block" />
-                <span>Points d’intérêt personnalisés</span>
+                <span>{t.catPoi}</span>
               </div>
             </div>
           </div>

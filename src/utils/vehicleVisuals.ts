@@ -15,6 +15,20 @@ export const VEHICLE_CATEGORY_LABELS: Record<VehicleCategory, string> = {
   heavy: 'Lourd / Blindé',
 };
 
+export const VEHICLE_CATEGORY_LABELS_EN: Record<VehicleCategory, string> = {
+  car: 'Standard',
+  sport: 'Sport',
+  muscle: 'Muscle / Coupe',
+  moto: 'Moto',
+  offroad: 'Off-Road',
+  special: 'Special',
+  heavy: 'Heavy / Armored',
+};
+
+export function getVehicleCategoryLabel(category: VehicleCategory, locale: 'en' | 'fr'): string {
+  return locale === 'fr' ? VEHICLE_CATEGORY_LABELS[category] : VEHICLE_CATEGORY_LABELS_EN[category];
+}
+
 export function getDefaultVehicleImage(category: VehicleCategory): string {
   switch (category) {
     case 'sport':

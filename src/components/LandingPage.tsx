@@ -9,6 +9,7 @@ import {
 } from '../services/stripeConfig';
 import { CatalogCategoryId } from '../i18n/locale';
 import { useLocale, LanguageSwitcher } from '../context/LocaleContext';
+import { DISCORD_INVITE_URL, DiscordIcon } from '../config/community';
 import { CommercialNav } from './CommercialNav';
 import { CheckoutTerminal } from './CheckoutTerminal';
 import heroStudioImg from '../assets/images/chitalix_hero_studio_1795218833743.jpg';
@@ -41,7 +42,7 @@ interface LandingPageProps {
 
 const CATALOG_CATEGORY_IDS: CatalogCategoryId[] = [
   'all',
-  'digital-kits',
+  'studio-kits',
   'templates',
   'saas-tools',
   'applications',
@@ -51,7 +52,7 @@ const CATALOG_CATEGORY_IDS: CatalogCategoryId[] = [
 ];
 
 const PLAN_CATEGORY_MAP: Record<SubscriptionTier, CatalogCategoryId[]> = {
-  lifetime: ['applications', 'creator-resources', 'digital-kits', 'saas-tools'],
+  lifetime: ['applications', 'creator-resources', 'studio-kits', 'saas-tools'],
   free: ['applications', 'creator-resources'],
   pro_monthly: ['saas-tools'],
   creator: ['creator-resources', 'marketing', 'saas-tools'],
@@ -68,7 +69,7 @@ const PLAN_MEDIA_MAP: Record<SubscriptionTier, { image: string; alt: string }> =
   },
   pro_monthly: {
     image: studioCraftImg,
-    alt: 'JITALX Pro Monthly digital workflow and cloud setup',
+    alt: 'JITALX Pro Monthly creator workflow and cloud setup',
   },
   creator: {
     image: flagshipProductImg,
@@ -164,11 +165,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigate
 
   const handleShare = async (customTitle?: string) => {
     const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
-    const title = customTitle || '10JITALX — Digital Studio. Ideas in Action.';
+    const title = customTitle || '10JITAL PROD — Ideas in Action.';
     const text =
       locale === 'fr'
-        ? 'Découvrez 10JITALX : kits digitaux, templates, outils SaaS, applications et logiciels créateurs comme JITALX.'
-        : 'Explore 10JITALX: digital kits, templates, SaaS tools, apps, and creator broadcast software including JITALX.';
+        ? 'Découvrez 10JITAL PROD : kits studio, templates, outils SaaS, applications et logiciels créateurs comme JITALX.'
+        : 'Explore 10JITAL PROD: studio kits, templates, SaaS tools, apps, and creator broadcast software including JITALX.';
 
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
@@ -223,8 +224,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigate
   const shareOrigin = typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : '';
   const shareTextEncoded = encodeURIComponent(
     locale === 'fr'
-      ? '10JITALX — Digital Studio. Ideas in Action. Kits digitaux, outils SaaS, apps et logiciel créateur JITALX.'
-      : '10JITALX — Digital Studio. Ideas in Action. Digital kits, SaaS tools, apps & JITALX creator software.'
+      ? '10JITAL PROD — Ideas in Action. Kits studio, outils SaaS, apps et logiciel créateur JITALX.'
+      : '10JITAL PROD — Ideas in Action. Studio kits, SaaS tools, apps & JITALX creator software.'
   );
 
   const trustIcons = [
@@ -240,7 +241,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigate
 
       <main className="flex-1">
         {/* ================================================================= */}
-        {/* 1. HERO SECTION — 10JITALX INTERNATIONAL DIGITAL STUDIO           */}
+        {/* 1. HERO SECTION — 10JITAL PROD                                    */}
         {/* ================================================================= */}
         <section className="relative border-b border-white/[0.08] overflow-hidden">
           {/* Controlled ambient studio gradient */}
@@ -329,7 +330,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigate
                   {!heroImgFailed ? (
                     <img
                       src={heroStudioImg}
-                      alt="10JITALX dark architectural digital product design studio"
+                      alt="10JITAL PROD dark architectural software design studio"
                       referrerPolicy="no-referrer"
                       loading="eager"
                       onError={() => setHeroImgFailed(true)}
@@ -376,7 +377,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigate
         </section>
 
         {/* ================================================================= */}
-        {/* 2. DIGITAL PRODUCT CATALOG (REAL ACTIVE RECORDS ONLY)             */}
+        {/* 2. PRODUCT CATALOG (REAL ACTIVE RECORDS ONLY)                     */}
         {/* ================================================================= */}
         <section id="catalog" className="py-16 lg:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
@@ -408,7 +409,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigate
           {/* Interactive Category Filter Bar */}
           <div
             role="tablist"
-            aria-label="Digital product categories"
+            aria-label="Product categories"
             className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-8 border-b border-white/[0.08]"
           >
             {CATALOG_CATEGORY_IDS.map((categoryId) => {
@@ -612,7 +613,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigate
                   {!craftImgFailed ? (
                     <img
                       src={studioCraftImg}
-                      alt="10JITALX digital product design system and engineering craft"
+                      alt="10JITAL PROD product design system and engineering craft"
                       referrerPolicy="no-referrer"
                       loading="lazy"
                       onError={() => setCraftImgFailed(true)}
@@ -847,6 +848,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigate
               </div>
             ))}
           </div>
+
+          {/* Official Discord Community Banner */}
+          <div className="rounded-2xl border border-[#5865F2]/40 bg-gradient-to-r from-[#5865F2]/15 via-[#120e24] to-[#110e1c] p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex items-start gap-4 max-w-2xl">
+              <div className="w-11 h-11 rounded-xl bg-[#5865F2]/20 border border-[#5865F2]/50 flex items-center justify-center shrink-0">
+                <DiscordIcon className="w-6 h-6 text-[#8c96ff]" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] font-mono-code uppercase tracking-[0.14em] text-[#8c96ff]">
+                  {t.trust.communityKicker}
+                </p>
+                <h3 className="font-hud font-bold text-xl text-white">
+                  {t.trust.communityTitle}
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  {t.trust.communityDesc}
+                </p>
+              </div>
+            </div>
+
+            <a
+              href={DISCORD_INVITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => cyberAudio.playChirp()}
+              className="px-5 py-3 rounded-lg bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs sm:text-sm font-semibold tracking-wide inline-flex items-center gap-2 transition-colors shadow-[0_10px_28px_-8px_rgba(88,101,242,0.65)] whitespace-nowrap shrink-0"
+            >
+              <DiscordIcon className="w-4 h-4" />
+              <span>{t.trust.joinDiscordCta}</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+            </a>
+          </div>
         </section>
       </main>
 
@@ -1007,6 +1040,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onNavigate
             >
               {t.footer.account}
             </button>
+            <a
+              href={DISCORD_INVITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[#8c96ff] hover:text-white transition-colors"
+            >
+              <DiscordIcon className="w-3.5 h-3.5" />
+              <span>{t.footer.discord}</span>
+            </a>
           </div>
         </div>
       </footer>

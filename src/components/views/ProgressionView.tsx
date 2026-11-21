@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGame } from '../../context/GameContext';
+import { useLocale } from '../../context/LocaleContext';
 import { ProgressionSubTab } from '../../types';
 import { cyberAudio } from '../../utils/cyberAudio';
 import { MissionsView } from './MissionsView';
@@ -13,6 +14,8 @@ interface ProgressionViewProps {
 
 export const ProgressionView: React.FC<ProgressionViewProps> = ({ onOpenNewItemModal }) => {
   const { progressionSubTab, setProgressionSubTab, stats } = useGame();
+  const { appCopy } = useLocale();
+  const t = appCopy.progression;
 
   const subTabs: {
     id: ProgressionSubTab;
@@ -22,19 +25,19 @@ export const ProgressionView: React.FC<ProgressionViewProps> = ({ onOpenNewItemM
   }[] = [
     {
       id: 'missions',
-      label: 'Missions',
+      label: t.tabMissions,
       counter: `${stats.missionsDone}/${stats.missionsTotal}`,
       icon: Compass,
     },
     {
       id: 'collectibles',
-      label: 'Collectibles',
+      label: t.tabCollectibles,
       counter: `${stats.collectiblesDone}/${stats.collectiblesTotal}`,
       icon: Sparkles,
     },
     {
       id: 'objectives',
-      label: 'Objectifs & Trophées',
+      label: t.tabObjectives,
       counter: `${stats.objectivesDone}/${stats.objectivesTotal}`,
       icon: Trophy,
     },

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Locale, DEFAULT_LOCALE, STUDIO_COPY, StudioCopy } from '../i18n/locale';
+import { APP_COPY, AppCopy } from '../i18n/appLocale';
 import { cyberAudio } from '../utils/cyberAudio';
 
 const LOCALE_STORAGE_KEY = '10jitalx_locale_v1';
@@ -9,6 +10,7 @@ interface LocaleContextType {
   setLocale: (next: Locale) => void;
   toggleLocale: () => void;
   copy: StudioCopy;
+  appCopy: AppCopy;
 }
 
 const LocaleContext = createContext<LocaleContextType | undefined>(undefined);
@@ -53,6 +55,7 @@ export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setLocale,
         toggleLocale,
         copy: STUDIO_COPY[locale],
+        appCopy: APP_COPY[locale],
       }}
     >
       {children}

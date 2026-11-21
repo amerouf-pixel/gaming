@@ -1,6 +1,7 @@
 import React from 'react';
 import { cyberAudio } from '../utils/cyberAudio';
-import { GUMROAD_PRODUCT_URL } from '../services/stripeConfig';
+import { buildGumroadCheckoutUrl, GUMROAD_PRODUCT_URL } from '../services/stripeConfig';
+import { useAuth } from '../context/AuthContext';
 import { useLocale, LanguageSwitcher } from '../context/LocaleContext';
 import { ArrowLeft, ShieldCheck, ExternalLink, Lock, Check, X, Info } from 'lucide-react';
 
@@ -16,12 +17,14 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
   planName = 'JITALX FULL ACCESS',
   price = '7.00',
   duration,
-  redirectUrl = GUMROAD_PRODUCT_URL,
+  redirectUrl,
   onClose,
 }) => {
+  const { user } = useAuth();
   const { locale, copy } = useLocale();
   const t = copy.checkout;
-  const targetUrl = redirectUrl || GUMROAD_PRODUCT_URL;
+  const targetUrl =
+    redirectUrl || buildGumroadCheckoutUrl({ email: user?.email, uid: user?.uid }) || GUMROAD_PRODUCT_URL;
   const resolvedDuration =
     duration ||
     (locale === 'fr' ? 'PAIEMENT UNIQUE · ACCÈS À VIE' : 'ONE-TIME PAYMENT · LIFETIME ACCESS');
@@ -67,7 +70,7 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
                   {t.summaryTitle}
                 </h2>
                 <p className="text-[11px] text-[#00f0ff]/85 mt-0.5 tracking-wider uppercase">
-                  10JITALX · JITALX COMMAND HUB
+                  10JITAL PROD · JITALX COMMAND HUB
                 </p>
               </div>
 
@@ -165,13 +168,13 @@ export const CheckoutTerminal: React.FC<CheckoutTerminalProps> = ({
               </a>
 
               <div className="text-[11px] text-center text-slate-400 break-all">
-                {t.officialLink} <span className="text-[#00f0ff]">{targetUrl}</span>
+                {t.officialLink} <span className="text-[#00f0ff]">{GUMROAD_PRODUCT_URL}</span>
               </div>
             </div>
           </div>
 
           <div className="pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
-            <span>10JITALX · 10JITAL Production · © 2026</span>
+            <span>10JITAL PROD · JITALX · © 2026</span>
             <span className="text-[#00f0ff] flex items-center gap-1">
               <Lock className="w-3 h-3" />
               {t.externalBadge}

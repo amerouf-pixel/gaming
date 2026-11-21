@@ -237,7 +237,7 @@ export const DemoPage: React.FC<DemoPageProps> = ({ onNavigate }) => {
             <h2 className="font-hud font-bold text-xl text-white">{t.radarTitle}</h2>
             <span className="text-xs font-mono-code text-slate-400">{t.radarHint}</span>
           </div>
-          <HoloRadar />
+          <HoloRadar variant="studio" onNavigateToApp={() => onNavigate('app')} />
         </div>
       </main>
 
